@@ -116,38 +116,7 @@ rcli config notify slack \
 }
 ```
 
-### 3. Discord Webhook
-
-**Configuration**:
-```bash
-rcli config notify discord \
-  --webhook-url https://discord.com/api/webhooks/... \
-  --username "Claude Assistant"
-```
-
-**Features**:
-- Embedded rich messages
-- Code syntax highlighting
-- File attachments
-- Mention support for urgent notifications
-
-### 4. Push Notifications
-
-**Supported Services**:
-- **Pushover**: Cross-platform push notifications
-- **Pushbullet**: Multi-device notifications
-- **NTFY**: Self-hosted push service
-
-**Pushover Configuration**:
-```bash
-rcli config notify pushover \
-  --app-token your-app-token \
-  --user-key your-user-key \
-  --priority normal \
-  --sound pushover
-```
-
-### 5. Custom Webhooks
+### 3. Custom Webhooks
 
 **Configuration**:
 ```bash
