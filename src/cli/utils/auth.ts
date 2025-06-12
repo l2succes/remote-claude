@@ -29,7 +29,7 @@ export class AuthManager {
         return token;
       }
     } catch (error) {
-      console.warn(chalk.yellow('⚠️  Keychain access failed:'), error.message);
+      console.warn(chalk.yellow('⚠️  Keychain access failed:'), (error as Error).message);
     }
 
     // Try config file
@@ -73,7 +73,7 @@ export class AuthManager {
       await keytar.deletePassword(SERVICE_NAME, ACCOUNT_NAME);
       console.log(chalk.green('✅ GitHub token removed from keychain'));
     } catch (error) {
-      console.warn(chalk.yellow('⚠️  Failed to remove from keychain:'), error.message);
+      console.warn(chalk.yellow('⚠️  Failed to remove from keychain:'), (error as Error).message);
     }
 
     // Also remove from config
@@ -122,7 +122,7 @@ export class AuthManager {
       });
 
       if (response.ok) {
-        const user = await response.json();
+        const user = await response.json() as any;
         console.log(chalk.green('✅ Authenticated as:'), user.login);
         return true;
       } else {
@@ -130,7 +130,7 @@ export class AuthManager {
         return false;
       }
     } catch (error) {
-      console.error(chalk.red('❌ Failed to validate token:'), error.message);
+      console.error(chalk.red('❌ Failed to validate token:'), (error as Error).message);
       return false;
     }
   }
@@ -196,7 +196,7 @@ export class AuthManager {
       });
 
       if (response.ok) {
-        const user = await response.json();
+        const user = await response.json() as any;
         return {
           authenticated: true,
           source,

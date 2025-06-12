@@ -13,7 +13,7 @@ import { createCancelCommand } from './cli/commands/cancel';
 const program = new Command();
 
 program
-  .name('rcli')
+  .name('rclaude')
   .description('Remote Claude CLI - Run Claude Code tasks in GitHub Codespaces')
   .version(version);
 
@@ -28,7 +28,7 @@ program.addCommand(createCancelCommand());
 // Handle unknown commands
 program.on('command:*', () => {
   console.error(chalk.red('❌ Unknown command:'), program.args.join(' '));
-  console.log(chalk.gray('Run'), chalk.blue('rcli --help'), chalk.gray('for available commands'));
+  console.log(chalk.gray('Run'), chalk.blue('rclaude --help'), chalk.gray('for available commands'));
   process.exit(1);
 });
 

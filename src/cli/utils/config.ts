@@ -76,7 +76,7 @@ export class ConfigManager {
       // Return empty config if none found
       return {};
     } catch (error) {
-      console.error(chalk.yellow('⚠️  Error loading config:'), error.message);
+      console.error(chalk.yellow('⚠️  Error loading config:'), (error as Error).message);
       return {};
     }
   }
@@ -90,7 +90,7 @@ export class ConfigManager {
       await fs.writeFile(this.configPath, configContent, 'utf8');
       console.log(chalk.green('✅ Configuration saved to:'), this.configPath);
     } catch (error) {
-      throw new Error(`Failed to save config: ${error.message}`);
+      throw new Error(`Failed to save config: ${(error as Error).message}`);
     }
   }
 
@@ -128,6 +128,7 @@ export class ConfigManager {
     // Navigate to the parent object
     for (let i = 0; i < keys.length - 1; i++) {
       const key = keys[i];
+      if (!key) continue;
       if (current[key] === undefined) {
         current[key] = {};
       }
@@ -136,7 +137,9 @@ export class ConfigManager {
     
     // Set the value
     const lastKey = keys[keys.length - 1];
-    current[lastKey] = value;
+    if (lastKey) {
+      current[lastKey] = value;
+    }
   }
 
   /**

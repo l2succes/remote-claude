@@ -60,10 +60,12 @@ export async function githubConfigCommand(options: GitHubConfigOptions): Promise
     }
     
     // Configure other options
-    await configManager.configureGitHub({
-      username: options.username,
-      repository: options.repository,
-    });
+    if (options.username || options.repository) {
+      await configManager.configureGitHub({
+        ...(options.username && { username: options.username }),
+        ...(options.repository && { repository: options.repository }),
+      });
+    }
     
   } catch (error) {
     console.error(chalk.red('❌ Error:'), (error as Error).message);
@@ -80,11 +82,19 @@ export async function notifyConfigCommand(options: NotifyConfigOptions): Promise
     // If no options provided, show current configuration
     if (!options.email && !options.slack && !options.pushover && !options.webhook) {
       configManager.displayConfig();
+      console.log(chalk.gray('\nTo configure notifications:'));
+      console.log(chalk.blue('  rclaude config notify --email your@email.com'));
+      console.log(chalk.blue('  rclaude config notify --slack https://hooks.slack.com/...'));
+      console.log(chalk.blue('  rclaude config notify --webhook https://your-webhook.com/endpoint'));
+      console.log(chalk.blue('  rclaude config notify --pushover app-token:user-key'));
       return;
     }
     
     // Configure notifications
     await configManager.configureNotifications(options);
+    
+    console.log(chalk.green('✨ Notification configuration updated!'));
+    console.log(chalk.gray('Use'), chalk.blue('--notify-on-start, --notify-on-complete, --notify-on-fail'), chalk.gray('flags with the run command'));
     
   } catch (error) {
     console.error(chalk.red('❌ Error:'), (error as Error).message);

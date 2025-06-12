@@ -2,12 +2,12 @@ import axios, { AxiosInstance } from 'axios';
 
 export interface CodespaceOptions {
   repository: string; // owner/repo format
-  branch?: string;
-  machine?: string;
-  location?: string;
-  displayName?: string;
-  idleTimeoutMinutes?: number;
-  retentionPeriodMinutes?: number;
+  branch?: string | undefined;
+  machine?: string | undefined;
+  location?: string | undefined;
+  displayName?: string | undefined;
+  idleTimeoutMinutes?: number | undefined;
+  retentionPeriodMinutes?: number | undefined;
 }
 
 export interface Codespace {
@@ -53,6 +53,22 @@ export class GitHubAPI {
   }
 
   /**
+   * Check if GitHub CLI is available
+   */
+  async checkGitHubCLI(): Promise<boolean> {
+    const { exec } = require('child_process');
+    const { promisify } = require('util');
+    const execAsync = promisify(exec);
+
+    try {
+      await execAsync('gh --version', { timeout: 5000 });
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  /**
    * List all codespaces for the authenticated user
    */
   async listCodespaces(): Promise<Codespace[]> {
@@ -60,7 +76,7 @@ export class GitHubAPI {
       const response = await this.client.get('/user/codespaces');
       return response.data.codespaces;
     } catch (error) {
-      throw new Error(`Failed to list codespaces: ${error.message}`);
+      throw new Error(`Failed to list codespaces: ${(error as Error).message}`);
     }
   }
 
@@ -90,7 +106,7 @@ export class GitHubAPI {
       
       return response.data;
     } catch (error) {
-      throw new Error(`Failed to create codespace: ${error.message}`);
+      throw new Error(`Failed to create codespace: ${(error as Error).message}`);
     }
   }
 
@@ -102,7 +118,7 @@ export class GitHubAPI {
       const response = await this.client.get(`/user/codespaces/${name}`);
       return response.data;
     } catch (error) {
-      throw new Error(`Failed to get codespace: ${error.message}`);
+      throw new Error(`Failed to get codespace: ${(error as Error).message}`);
     }
   }
 
@@ -113,7 +129,7 @@ export class GitHubAPI {
     try {
       await this.client.delete(`/user/codespaces/${name}`);
     } catch (error) {
-      throw new Error(`Failed to delete codespace: ${error.message}`);
+      throw new Error(`Failed to delete codespace: ${(error as Error).message}`);
     }
   }
 
@@ -125,7 +141,7 @@ export class GitHubAPI {
       const response = await this.client.post(`/user/codespaces/${name}/start`);
       return response.data;
     } catch (error) {
-      throw new Error(`Failed to start codespace: ${error.message}`);
+      throw new Error(`Failed to start codespace: ${(error as Error).message}`);
     }
   }
 
@@ -137,7 +153,7 @@ export class GitHubAPI {
       const response = await this.client.post(`/user/codespaces/${name}/stop`);
       return response.data;
     } catch (error) {
-      throw new Error(`Failed to stop codespace: ${error.message}`);
+      throw new Error(`Failed to stop codespace: ${(error as Error).message}`);
     }
   }
 
@@ -149,18 +165,44 @@ export class GitHubAPI {
       const response = await this.client.get(`/user/codespaces/${name}/exports`);
       return response.data;
     } catch (error) {
-      throw new Error(`Failed to get codespace connection: ${error.message}`);
+      throw new Error(`Failed to get codespace connection: ${(error as Error).message}`);
     }
   }
 
   /**
    * Execute a command in a codespace via the GitHub CLI API
-   * Note: This requires additional setup and may need to use the GitHub CLI directly
+   * Note: This requires the GitHub CLI to be installed and authenticated
    */
   async executeCommand(name: string, command: string): Promise<string> {
-    // This is a placeholder - actual implementation would require using GitHub CLI
-    // or setting up SSH connection to the codespace
-    throw new Error('Command execution not implemented yet - requires GitHub CLI integration');
+    const { exec } = require('child_process');
+    const { promisify } = require('util');
+    const execAsync = promisify(exec);
+
+    try {
+      // Use GitHub CLI to execute command in codespace
+      const ghCommand = `gh codespace ssh --codespace ${name} -- '${command.replace(/'/g, "'\\''")}' 2>&1`;
+      
+      const { stdout, stderr } = await execAsync(ghCommand, {
+        timeout: 60000, // 1 minute timeout for individual commands
+        maxBuffer: 1024 * 1024, // 1MB buffer
+      });
+
+      if (stderr && !stdout) {
+        throw new Error(`Command failed: ${stderr}`);
+      }
+
+      return stdout + (stderr ? `\nStderr: ${stderr}` : '');
+    } catch (error: any) {
+      if (error.code === 'ENOENT') {
+        throw new Error('GitHub CLI (gh) is not installed or not in PATH. Please install it from https://cli.github.com/');
+      }
+      
+      if (error.killed) {
+        throw new Error(`Command timed out: ${command}`);
+      }
+      
+      throw new Error(`Failed to execute command in codespace: ${error.message}`);
+    }
   }
 
   /**
@@ -171,7 +213,7 @@ export class GitHubAPI {
       const response = await this.client.get(`/repos/${owner}/${repo}`);
       return response.data;
     } catch (error) {
-      throw new Error(`Failed to get repository: ${error.message}`);
+      throw new Error(`Failed to get repository: ${(error as Error).message}`);
     }
   }
 
@@ -183,7 +225,7 @@ export class GitHubAPI {
       const repoData = await this.getRepository(owner, repo);
       return repoData.default_branch;
     } catch (error) {
-      throw new Error(`Failed to get default branch: ${error.message}`);
+      throw new Error(`Failed to get default branch: ${(error as Error).message}`);
     }
   }
 }

@@ -60,17 +60,19 @@ export class WebhookServer extends EventEmitter {
     this.app.post('/webhook/:taskId', (req: Request, res: Response) => {
       const { taskId } = req.params;
       const payload: WebhookPayload = {
-        taskId,
-        status: req.body.status || 'running',
+        taskId: taskId || '',
+        status: req.body?.status || 'running',
         timestamp: new Date().toISOString(),
-        data: req.body.data || {},
+        data: req.body?.data || {},
       };
 
       // Store webhook payload
-      if (!this.taskWebhooks.has(taskId)) {
+      if (taskId && !this.taskWebhooks.has(taskId)) {
         this.taskWebhooks.set(taskId, []);
       }
-      this.taskWebhooks.get(taskId)!.push(payload);
+      if (taskId) {
+        this.taskWebhooks.get(taskId)!.push(payload);
+      }
 
       // Emit event for real-time processing
       this.emit('webhook:received', payload);
@@ -85,8 +87,8 @@ export class WebhookServer extends EventEmitter {
     // Get webhook history for a task
     this.app.get('/webhooks/:taskId', (req: Request, res: Response) => {
       const { taskId } = req.params;
-      const webhooks = this.taskWebhooks.get(taskId) || [];
-      res.json({ taskId, webhooks });
+      const webhooks = this.taskWebhooks.get(taskId || '') || [];
+      res.json({ taskId: taskId || '', webhooks });
     });
 
     // List all tasks with webhooks
@@ -107,7 +109,9 @@ export class WebhookServer extends EventEmitter {
     // Clear webhook history for a task
     this.app.delete('/webhooks/:taskId', (req: Request, res: Response) => {
       const { taskId } = req.params;
-      this.taskWebhooks.delete(taskId);
+      if (taskId) {
+        this.taskWebhooks.delete(taskId);
+      }
       res.json({ success: true, message: 'Webhook history cleared' });
     });
 

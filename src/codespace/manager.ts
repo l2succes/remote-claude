@@ -5,19 +5,19 @@ import chalk from 'chalk';
 export interface TaskOptions {
   task: string;
   repository: string;
-  branch?: string;
-  timeout?: number;
-  autoCommit?: boolean;
-  pullRequest?: boolean;
-  outputFiles?: string[];
+  branch?: string | undefined;
+  timeout?: number | undefined;
+  autoCommit?: boolean | undefined;
+  pullRequest?: boolean | undefined;
+  outputFiles?: string[] | undefined;
 }
 
 export interface CodespaceManagerOptions {
   token: string;
-  webhookUrl?: string;
-  defaultMachine?: string;
-  defaultLocation?: string;
-  defaultIdleTimeout?: number;
+  webhookUrl?: string | undefined;
+  defaultMachine?: string | undefined;
+  defaultLocation?: string | undefined;
+  defaultIdleTimeout?: number | undefined;
 }
 
 export class CodespaceManager extends EventEmitter {
@@ -29,6 +29,16 @@ export class CodespaceManager extends EventEmitter {
     super();
     this.options = options;
     this.api = new GitHubAPI(options.token);
+  }
+
+  /**
+   * Check if GitHub CLI is available for remote execution
+   */
+  async checkPrerequisites(): Promise<void> {
+    const hasGitHubCLI = await this.api.checkGitHubCLI();
+    if (!hasGitHubCLI) {
+      throw new Error('GitHub CLI (gh) is required for remote execution. Please install it from https://cli.github.com/');
+    }
   }
 
   /**
@@ -59,7 +69,7 @@ export class CodespaceManager extends EventEmitter {
       
       return codespace;
     } catch (error) {
-      console.error(chalk.red('❌ Failed to create codespace:'), error.message);
+      console.error(chalk.red('❌ Failed to create codespace:'), (error as Error).message);
       this.emit('codespace:error', { taskId, error });
       throw error;
     }
@@ -118,19 +128,35 @@ export class CodespaceManager extends EventEmitter {
       const command = this.buildClaudeCommand(taskOptions);
       console.log(chalk.gray('Command:'), command);
       
-      // Note: Actual command execution would require SSH or GitHub CLI integration
-      // For now, this is a placeholder
-      console.log(chalk.yellow('⚠️  Task execution not fully implemented yet'));
-      console.log(chalk.gray('Would execute:', command));
-      
       this.emit('task:started', { taskId, codespace, command });
       
-      // Simulate task completion for now
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      this.emit('task:completed', { taskId, codespace });
+      // Send start notification via webhook
+      await this.api.executeCommand(codespace.name, `/tmp/webhook.sh "running" "Task started: ${taskOptions.task}"`);
+      
+      try {
+        // Execute the actual Claude Code command
+        const result = await this.api.executeCommand(codespace.name, command);
+        
+        console.log(chalk.green('✅ Task completed successfully'));
+        console.log(chalk.gray('Output:'), result.substring(0, 500) + (result.length > 500 ? '...' : ''));
+        
+        // Send completion notification via webhook
+        await this.api.executeCommand(codespace.name, `/tmp/webhook.sh "completed" "Task completed successfully"`);
+        
+        this.emit('task:completed', { taskId, codespace, result });
+        
+      } catch (commandError) {
+        console.error(chalk.red('❌ Command execution failed:'), (commandError as Error).message);
+        
+        // Send failure notification via webhook
+        await this.api.executeCommand(codespace.name, `/tmp/webhook.sh "failed" "Task failed: ${(commandError as Error).message}"`);
+        
+        this.emit('task:failed', { taskId, codespace, error: commandError });
+        throw commandError;
+      }
       
     } catch (error) {
-      console.error(chalk.red('❌ Task execution failed:'), error.message);
+      console.error(chalk.red('❌ Task execution failed:'), (error as Error).message);
       this.emit('task:failed', { taskId, codespace, error });
       throw error;
     }
@@ -142,11 +168,22 @@ export class CodespaceManager extends EventEmitter {
   private async installClaudeCode(codespaceName: string): Promise<void> {
     console.log(chalk.gray('📦 Installing Claude Code...'));
     
-    // This would use SSH or GitHub CLI to install claude-code
-    const installCommand = 'npm install -g claude-code';
-    
-    // Placeholder for actual implementation
-    console.log(chalk.yellow('⚠️  Claude Code installation not implemented yet'));
+    try {
+      // Install Claude Code via npm
+      const installCommand = 'npm install -g @anthropic-ai/claude-code-cli';
+      const result = await this.api.executeCommand(codespaceName, installCommand);
+      
+      console.log(chalk.green('✅ Claude Code installed successfully'));
+      console.log(chalk.gray('Installation output:'), result.substring(0, 200) + (result.length > 200 ? '...' : ''));
+      
+      // Verify installation
+      const verifyCommand = 'claude-code --version';
+      await this.api.executeCommand(codespaceName, verifyCommand);
+      
+    } catch (error) {
+      console.error(chalk.red('❌ Failed to install Claude Code:'), (error as Error).message);
+      throw error;
+    }
   }
 
   /**
@@ -157,9 +194,32 @@ export class CodespaceManager extends EventEmitter {
     
     console.log(chalk.gray('🔔 Setting up webhook...'));
     
-    // This would configure the codespace to send updates to our webhook
-    // Placeholder for actual implementation
-    console.log(chalk.yellow('⚠️  Webhook setup not implemented yet'));
+    try {
+      // Create a script to send webhook updates
+      const webhookScript = `
+#!/bin/bash
+WEBHOOK_URL="${this.options.webhookUrl}/webhook/${taskId}"
+STATUS="$1"
+MESSAGE="$2"
+
+curl -X POST "$WEBHOOK_URL" \\
+  -H "Content-Type: application/json" \\
+  -d "{\\"status\\": \\"$STATUS\\", \\"message\\": \\"$MESSAGE\\", \\"timestamp\\": \\"$(date -Iseconds)\\"}" \\
+  --silent --max-time 10 || true
+      `.trim();
+
+      // Write the webhook script to the codespace
+      const writeScriptCommand = `cat > /tmp/webhook.sh << 'EOF'
+${webhookScript}
+EOF
+chmod +x /tmp/webhook.sh`;
+
+      await this.api.executeCommand(codespaceName, writeScriptCommand);
+      
+      console.log(chalk.green('✅ Webhook setup completed'));
+    } catch (error) {
+      console.error(chalk.red('❌ Failed to setup webhook:'), (error as Error).message);
+    }
   }
 
   /**
@@ -211,7 +271,7 @@ export class CodespaceManager extends EventEmitter {
       this.activeCodespaces.delete(taskId);
       this.emit('codespace:cleaned', { taskId, codespace });
     } catch (error) {
-      console.error(chalk.red('❌ Failed to cleanup codespace:'), error.message);
+      console.error(chalk.red('❌ Failed to cleanup codespace:'), (error as Error).message);
       this.emit('codespace:error', { taskId, error });
     }
   }
@@ -225,12 +285,12 @@ export class CodespaceManager extends EventEmitter {
       
       // Filter to only show codespaces created by rcli
       const rcliCodespaces = allCodespaces.filter(cs => 
-        cs.display_name?.startsWith('rcli-')
+        cs.name?.startsWith('rcli-')
       );
       
       return rcliCodespaces;
     } catch (error) {
-      console.error(chalk.red('❌ Failed to list codespaces:'), error.message);
+      console.error(chalk.red('❌ Failed to list codespaces:'), (error as Error).message);
       throw error;
     }
   }
@@ -249,6 +309,9 @@ export class CodespaceManager extends EventEmitter {
     let codespace: Codespace | undefined;
     
     try {
+      // Check prerequisites
+      await this.checkPrerequisites();
+      
       // Create codespace
       codespace = await this.createCodespaceForTask(taskId, options);
       
