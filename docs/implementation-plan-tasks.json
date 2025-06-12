@@ -3,15 +3,15 @@
     {
       "title": "Phase 1: Core Infrastructure (Weeks 1-2)",
       "subtasks": [
-        { "title": "Implement CLI framework with command parsing" },
-        { "title": "Integrate GitHub API for Codespace management" },
-        { "title": "Set up authentication and configuration system" },
-        { "title": "Enable simple task execution in Codespace" },
-        { "title": "Implement local webhook server for status updates" },
-        { "title": "Success: Create/destroy Codespaces via CLI" },
-        { "title": "Success: Execute Claude Code commands remotely" },
-        { "title": "Success: Receive status updates via webhooks" },
-        { "title": "Success: Persist configuration between sessions" }
+        { "title": "Implement CLI framework with command parsing", "status": "completed", "completedDate": "2025-06-12" },
+        { "title": "Integrate GitHub API for Codespace management", "status": "completed", "completedDate": "2025-06-12" },
+        { "title": "Set up authentication and configuration system", "status": "completed", "completedDate": "2025-06-12" },
+        { "title": "Enable simple task execution in Codespace", "status": "completed", "completedDate": "2025-06-12" },
+        { "title": "Implement local webhook server for status updates", "status": "completed", "completedDate": "2025-06-12" },
+        { "title": "Success: Create/destroy Codespaces via CLI", "status": "in-progress", "notes": "API integration complete, needs testing with real tokens" },
+        { "title": "Success: Execute Claude Code commands remotely", "status": "partial", "notes": "Framework complete, needs SSH/GitHub CLI integration" },
+        { "title": "Success: Receive status updates via webhooks", "status": "completed", "completedDate": "2025-06-12" },
+        { "title": "Success: Persist configuration between sessions", "status": "completed", "completedDate": "2025-06-12" }
       ]
     },
     {
@@ -64,16 +64,18 @@
     {
       "title": "Technology Stack Setup",
       "subtasks": [
-        { "title": "Set up CLI framework (Commander.js or Yargs)" },
-        { "title": "Configure HTTP client (Axios or Fetch API)" },
-        { "title": "Set up webhook server (Express.js or Fastify)" },
-        { "title": "Configure Cosmiconfig for configuration" },
-        { "title": "Set up OS Keychain (keytar) for authentication" },
-        { "title": "Set up Nodemailer for email notifications" },
-        { "title": "Set up Slack Web API or Webhooks" },
-        { "title": "Set up Handlebars or Mustache for templates" },
+        { "title": "Set up CLI framework (Commander.js or Yargs)", "status": "completed", "completedDate": "2025-06-12", "notes": "Using Commander.js" },
+        { "title": "Configure HTTP client (Axios or Fetch API)", "status": "completed", "completedDate": "2025-06-12", "notes": "Using Axios" },
+        { "title": "Set up webhook server (Express.js or Fastify)", "status": "completed", "completedDate": "2025-06-12", "notes": "Using Express.js" },
+        { "title": "Configure Cosmiconfig for configuration", "status": "completed", "completedDate": "2025-06-12" },
+        { "title": "Set up OS Keychain (keytar) for authentication", "status": "completed", "completedDate": "2025-06-12" },
+        { "title": "Set up Nodemailer for email notifications", "status": "pending" },
+        { "title": "Set up Slack Web API or Webhooks", "status": "pending" },
+        { "title": "Set up Handlebars or Mustache for templates", "status": "pending" },
         {
-          "title": "Set up TypeScript, esbuild/Webpack, Jest, ESLint, Prettier"
+          "title": "Set up TypeScript, esbuild/Webpack, Jest, ESLint, Prettier",
+          "status": "partial",
+          "notes": "TypeScript and build tools configured, testing framework pending"
         }
       ]
     },
