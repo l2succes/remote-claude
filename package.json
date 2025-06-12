@@ -1,5 +1,5 @@
 {
-  "name": "remote-claude-cli",
+  "name": "remote-claude",
   "version": "0.1.0",
   "description": "A CLI tool for running Claude Code in GitHub Codespaces with remote task execution and notification capabilities",
   "main": "dist/index.js",
@@ -63,10 +63,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/remote-claude-cli.git"
+    "url": "https://github.com/l2succes/remote-claude.git"
   },
   "bugs": {
-    "url": "https://github.com/yourusername/remote-claude-cli/issues"
+    "url": "https://github.com/l2succes/remote-claude/issues"
   },
-  "homepage": "https://github.com/yourusername/remote-claude-cli#readme"
+  "homepage": "https://github.com/l2succes/remote-claude#readme"
 }

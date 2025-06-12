@@ -1,13 +1,13 @@
-# Remote Claude CLI
+# Remote Claude
 
 > A CLI tool for running Claude Code in GitHub Codespaces with remote task execution and notification capabilities.
 
-[![npm version](https://badge.fury.io/js/remote-claude-cli.svg)](https://badge.fury.io/js/remote-claude-cli)
+[![npm version](https://badge.fury.io/js/remote-claude.svg)](https://badge.fury.io/js/remote-claude)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## 🚀 What is Remote Claude CLI?
+## 🚀 What is Remote Claude?
 
-Remote Claude CLI (`rcli`) allows you to run long-running Claude Code tasks in GitHub Codespaces while you close your computer and get notified when they're done. Perfect for overnight refactoring, large-scale code analysis, or any task that would otherwise tie up your local machine.
+Remote Claude (`rcli`) allows you to run long-running Claude Code tasks in GitHub Codespaces while you close your computer and get notified when they're done. Perfect for overnight refactoring, large-scale code analysis, or any task that would otherwise tie up your local machine.
 
 ## ✨ Key Features
 
@@ -20,13 +20,13 @@ Remote Claude CLI (`rcli`) allows you to run long-running Claude Code tasks in G
 
 ## 🎯 Problem Solved
 
-**Before Remote Claude CLI:**
+**Before Remote Claude:**
 - Long-running tasks tie up your local machine
 - Connection drops break task continuity  
 - No way to run tasks overnight or while away
 - Manual monitoring required
 
-**After Remote Claude CLI:**
+**After Remote Claude:**
 - Start tasks and close your computer
 - Get notified when work is complete
 - Resume or review results anytime
@@ -36,10 +36,10 @@ Remote Claude CLI (`rcli`) allows you to run long-running Claude Code tasks in G
 
 ```bash
 # Install globally via npm
-npm install -g remote-claude-cli
+npm install -g remote-claude
 
 # Or use with npx (no installation needed)
-npx remote-claude-cli --help
+npx remote-claude --help
 ```
 
 ## 🔧 Quick Setup
@@ -147,9 +147,9 @@ MIT License - see [LICENSE](./LICENSE) file for details.
 
 ## 🆘 Support
 
-- 🐛 [Report Issues](https://github.com/yourusername/remote-claude-cli/issues)
-- 💬 [Discussions](https://github.com/yourusername/remote-claude-cli/discussions)
-- 📧 Email: support@remote-claude-cli.com
+- 🐛 [Report Issues](https://github.com/l2succes/remote-claude/issues)
+- 💬 [Discussions](https://github.com/l2succes/remote-claude/discussions)
+- 📧 Email: support@remote-claude.com
 
 ---
 
