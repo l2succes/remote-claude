@@ -165,7 +165,7 @@ export class CodespaceManager extends EventEmitter {
   /**
    * Install Claude Code in the codespace
    */
-  private async installClaudeCode(codespaceName: string): Promise<void> {
+  async installClaudeCode(codespaceName: string): Promise<void> {
     console.log(chalk.gray('📦 Installing Claude Code...'));
     
     try {
@@ -273,6 +273,28 @@ chmod +x /tmp/webhook.sh`;
     } catch (error) {
       console.error(chalk.red('❌ Failed to cleanup codespace:'), (error as Error).message);
       this.emit('codespace:error', { taskId, error });
+    }
+  }
+
+  /**
+   * Clean up a codespace by name
+   */
+  async cleanupCodespaceByName(codespaceName: string, deleteCodespace = true): Promise<void> {
+    try {
+      if (deleteCodespace) {
+        console.log(chalk.blue('🗑️  Deleting codespace...'));
+        await this.api.deleteCodespace(codespaceName);
+        console.log(chalk.green('✅ Codespace deleted'));
+      } else {
+        console.log(chalk.blue('⏸️  Stopping codespace...'));
+        await this.api.stopCodespace(codespaceName);
+        console.log(chalk.green('✅ Codespace stopped'));
+      }
+      
+      this.emit('codespace:cleaned', { codespaceName });
+    } catch (error) {
+      console.error(chalk.red('❌ Failed to cleanup codespace:'), (error as Error).message);
+      this.emit('codespace:error', { codespaceName, error });
     }
   }
 

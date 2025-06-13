@@ -9,6 +9,7 @@ import { createResultsCommand } from './cli/commands/results';
 import { createConfigCommand } from './cli/commands/config';
 import { createLogsCommand } from './cli/commands/logs';
 import { createCancelCommand } from './cli/commands/cancel';
+import { createSessionCommand } from './cli/commands/session';
 
 const program = new Command();
 
@@ -24,6 +25,7 @@ program.addCommand(createResultsCommand());
 program.addCommand(createConfigCommand());
 program.addCommand(createLogsCommand());
 program.addCommand(createCancelCommand());
+program.addCommand(createSessionCommand());
 
 // Handle unknown commands
 program.on('command:*', () => {

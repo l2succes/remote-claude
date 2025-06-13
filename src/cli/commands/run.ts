@@ -18,6 +18,7 @@ export interface RunOptions {
   pullRequest?: boolean;
   output?: string;
   name?: string;
+  interactive?: boolean;
 }
 
 export async function runCommand(task: string, options: RunOptions): Promise<void> {
@@ -55,7 +56,80 @@ export async function runCommand(task: string, options: RunOptions): Promise<voi
     const priority = (options.priority as TaskPriority) || 'normal';
     console.log(chalk.gray(`Priority: ${priority}`));
     
-    // Initialize task manager
+    if (options.interactive) {
+      // Interactive mode - create codespace and connect directly
+      console.log(chalk.blue('🖥️  Starting interactive Claude Code session...'));
+      
+      const { CodespaceManager } = await import('../../codespace/manager');
+      const codespaceManager = new CodespaceManager({
+        token,
+        webhookUrl: undefined, // No webhook needed for interactive
+      });
+      
+      await codespaceManager.checkPrerequisites();
+      
+      // Create codespace for interactive session
+      const taskId = `interactive-${Date.now()}`;
+      const codespace = await codespaceManager.createCodespaceForTask(taskId, {
+        task,
+        repository,
+        branch: options.branch,
+        timeout: parseInt(options.timeout || '7200', 10),
+        autoCommit: options.autoCommit,
+        pullRequest: options.pullRequest,
+        outputFiles: options.output?.split(','),
+      });
+      
+      // Install Claude Code
+      await codespaceManager.installClaudeCode(codespace.name);
+      
+      console.log(chalk.green('✅ Interactive session ready!'));
+      console.log(chalk.blue('🔗 Connecting to codespace...'));
+      
+      // Connect interactively via GitHub CLI
+      const { spawn } = require('child_process');
+      const interactiveProcess = spawn('gh', [
+        'codespace', 'ssh', 
+        '--codespace', codespace.name,
+        '--', 
+        'claude-code'
+      ], {
+        stdio: 'inherit', // Pass through stdin/stdout/stderr
+      });
+      
+      // Handle process exit
+      interactiveProcess.on('exit', async (code: number) => {
+        console.log(chalk.yellow('\n📤 Interactive session ended'));
+        
+        if (options.autoCommit || options.pullRequest) {
+          console.log(chalk.blue('🔄 Processing changes...'));
+          // Note: Auto-commit logic would be handled here
+        }
+        
+        // Ask user if they want to keep the codespace
+        const inquirer = await import('inquirer');
+        const { keepCodespace } = await inquirer.default.prompt([{
+          type: 'confirm',
+          name: 'keepCodespace',
+          message: 'Keep the codespace running?',
+          default: false,
+        }]);
+        
+        if (!keepCodespace) {
+          console.log(chalk.blue('🗑️  Cleaning up codespace...'));
+          await codespaceManager.cleanupCodespace(taskId, true);
+        } else {
+          console.log(chalk.green('✅ Codespace kept running:'), codespace.name);
+          console.log(chalk.gray('Access it later with:'), chalk.blue(`gh codespace ssh --codespace ${codespace.name}`));
+        }
+        
+        process.exit(code);
+      });
+      
+      return; // Exit early for interactive mode
+    }
+    
+    // Non-interactive mode - use task queue
     const taskManager = new TaskManager({
       token,
       autoStart: false,
@@ -106,6 +180,7 @@ export function createRunCommand(): Command {
     .option('-b, --branch <branch>', 'Git branch to use')
     .option('-t, --timeout <seconds>', 'Task timeout in seconds', '7200')
     .option('-p, --priority <level>', 'Task priority (low, normal, high, urgent)', 'normal')
+    .option('-i, --interactive', 'Run in interactive mode (connects directly to codespace)')
     .option('-n, --notify <channels>', 'Notification channels (comma-separated)')
     .option('--notify-on-start', 'Send notification when task starts')
     .option('--notify-on-complete', 'Send notification when task completes')
