@@ -57,11 +57,11 @@ fi
 
 # Step 2: Install Claude Code
 log_info "Step 2: Installing Claude Code..."
-if command -v claude-code &> /dev/null; then
+if command -v claude &> /dev/null; then
     log_success "Claude Code already installed"
 else
     log_info "Installing Claude Code CLI..."
-    npm install -g @anthropic-ai/claude-code-cli
+    npm install -g @anthropic-ai/claude-code
     log_success "Claude Code installed"
 fi
 
@@ -115,7 +115,7 @@ else
     tmux new-session -d -s "$SESSION_NAME"
     tmux send-keys -t "$SESSION_NAME" 'echo "🤖 Claude Code Session Ready!"' Enter
     tmux send-keys -t "$SESSION_NAME" 'echo "💡 Press Ctrl+B then D to detach"' Enter
-    tmux send-keys -t "$SESSION_NAME" 'echo "📝 Run: claude-code to start"' Enter
+    tmux send-keys -t "$SESSION_NAME" 'echo "📝 Run: claude to start"' Enter
     tmux send-keys -t "$SESSION_NAME" 'echo ""' Enter
     tmux attach-session -t "$SESSION_NAME"
 fi
@@ -155,11 +155,11 @@ tmux send-keys -t "$SESSION_NAME" 'echo "🤖 Remote Claude Session Ready!"' Ent
 tmux send-keys -t "$SESSION_NAME" 'echo "================================"' Enter
 tmux send-keys -t "$SESSION_NAME" 'echo ""' Enter
 tmux send-keys -t "$SESSION_NAME" 'echo "💡 Quick Commands:"' Enter
-tmux send-keys -t "$SESSION_NAME" 'echo "  claude-code           # Start Claude Code"' Enter
+tmux send-keys -t "$SESSION_NAME" 'echo "  claude                # Start Claude Code"' Enter
 tmux send-keys -t "$SESSION_NAME" 'echo "  Ctrl+B then D         # Detach (keeps running)"' Enter
 tmux send-keys -t "$SESSION_NAME" 'echo "  ~/claude-status.sh    # Check session status"' Enter
 tmux send-keys -t "$SESSION_NAME" 'echo ""' Enter
-tmux send-keys -t "$SESSION_NAME" 'echo "🚀 Ready! Type: claude-code"' Enter
+tmux send-keys -t "$SESSION_NAME" 'echo "🚀 Ready! Type: claude"' Enter
 
 log_success "Session '$SESSION_NAME' created"
 
@@ -170,7 +170,7 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo ""
 echo "Next steps:"
 echo "  1. tmux attach-session -t claude-work"
-echo "  2. Run: claude-code"
+echo "  2. Run: claude"
 echo "  3. Press Ctrl+B then D to detach anytime"
 echo ""
 echo "Helper commands:"

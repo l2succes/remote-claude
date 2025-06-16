@@ -293,7 +293,7 @@ setup_claude_code() {
     log_info "Setting up Claude Code environment..."
     
     # Verify Claude Code is installed
-    if ! command -v claude-code &> /dev/null; then
+    if ! command -v claude &> /dev/null; then
         log_error "Claude Code is not installed. Please install it first."
         return 1
     fi
@@ -315,7 +315,7 @@ while [ $RESTART_COUNT -lt $MAX_RESTARTS ]; do
     log_message "🤖 Starting Claude Code (attempt $((RESTART_COUNT + 1))/$MAX_RESTARTS)"
     
     # Run Claude Code
-    claude-code
+    claude
     EXIT_CODE=$?
     
     if [ $EXIT_CODE -eq 0 ]; then
