@@ -34,6 +34,11 @@ Welcome to the Remote Claude documentation! This directory contains comprehensiv
   - Team collaboration setup
   - CI/CD integration
   - Security best practices
+- **[Codespace Lifecycle](./codespace-lifecycle.md)** - Managing codespace timeouts and costs
+  - Idle timeout configuration
+  - Cost optimization strategies
+  - Keep-alive techniques
+  - Monitoring and cleanup
 
 ### Architecture & Implementation
 - **[Architecture](./architecture.md)** - System design and architecture

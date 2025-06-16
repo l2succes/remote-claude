@@ -17,6 +17,8 @@ export interface TaskManagerOptions {
   dataDir?: string | undefined;
   autoStart?: boolean | undefined;
   notifications?: NotificationConfig | undefined;
+  defaultMachine?: string | undefined;
+  defaultIdleTimeout?: number | undefined;
 }
 
 export interface CreateTaskOptions {
@@ -67,6 +69,8 @@ export class TaskManager extends EventEmitter {
     this.codespaceManager = new CodespaceManager({
       token: options.token,
       webhookUrl: this.webhookServer.getUrl(),
+      defaultMachine: options.defaultMachine,
+      defaultIdleTimeout: options.defaultIdleTimeout,
     });
 
     // Initialize notification manager if config provided

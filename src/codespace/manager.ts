@@ -177,7 +177,7 @@ export class CodespaceManager extends EventEmitter {
       console.log(chalk.gray('Installation output:'), result.substring(0, 200) + (result.length > 200 ? '...' : ''));
       
       // Verify installation
-      const verifyCommand = 'claude --version';
+      const verifyCommand = 'claude -v';
       await this.api.executeCommand(codespaceName, verifyCommand);
       
     } catch (error) {

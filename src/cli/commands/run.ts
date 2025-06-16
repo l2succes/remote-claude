@@ -20,6 +20,8 @@ export interface RunOptions {
   name?: string;
   interactive?: boolean;
   persistent?: boolean;
+  idleTimeout?: number;
+  machineType?: string;
 }
 
 export async function runCommand(task: string, options: RunOptions): Promise<void> {
@@ -57,6 +59,18 @@ export async function runCommand(task: string, options: RunOptions): Promise<voi
     const priority = (options.priority as TaskPriority) || 'normal';
     console.log(chalk.gray(`Priority: ${priority}`));
     
+    // Validate and show codespace configuration
+    if (options.idleTimeout) {
+      if (options.idleTimeout < 30 || options.idleTimeout > 1440) {
+        console.error(chalk.red('❌ Idle timeout must be between 30 and 1440 minutes (24 hours)'));
+        process.exit(1);
+      }
+      console.log(chalk.gray(`Idle timeout: ${options.idleTimeout} minutes`));
+    }
+    if (options.machineType && options.machineType !== 'basicLinux32gb') {
+      console.log(chalk.gray(`Machine type: ${options.machineType}`));
+    }
+    
     if (options.interactive) {
       // Interactive mode - create codespace and connect directly
       console.log(chalk.blue('🖥️  Starting interactive Claude Code session...'));
@@ -65,6 +79,8 @@ export async function runCommand(task: string, options: RunOptions): Promise<voi
       const codespaceManager = new CodespaceManager({
         token,
         webhookUrl: undefined, // No webhook needed for interactive
+        defaultMachine: options.machineType,
+        defaultIdleTimeout: options.idleTimeout,
       });
       
       await codespaceManager.checkPrerequisites();
@@ -146,6 +162,8 @@ export async function runCommand(task: string, options: RunOptions): Promise<voi
     const taskManager = new TaskManager({
       token,
       autoStart: false,
+      defaultMachine: options.machineType,
+      defaultIdleTimeout: options.idleTimeout,
     });
     
     await taskManager.start();
@@ -196,6 +214,8 @@ export function createRunCommand(): Command {
     .option('-i, --interactive', 'Run in interactive mode (connects directly to codespace)')
     .option('--persistent', 'Enable persistent session with tmux (default for interactive)')
     .option('--no-persistent', 'Disable persistent session setup')
+    .option('--idle-timeout <minutes>', 'Codespace idle timeout in minutes (30-1440)', (val) => parseInt(val))
+    .option('--machine-type <type>', 'Codespace machine type (basicLinux32gb, standardLinux32gb, premiumLinux)', 'basicLinux32gb')
     .option('-n, --notify <channels>', 'Notification channels (comma-separated)')
     .option('--notify-on-start', 'Send notification when task starts')
     .option('--notify-on-complete', 'Send notification when task completes')
