@@ -187,6 +187,43 @@ export class CodespaceManager extends EventEmitter {
   }
 
   /**
+   * Setup persistent session environment with auto-configuration
+   */
+  async setupPersistentSession(codespaceName: string): Promise<void> {
+    console.log(chalk.gray('🔧 Setting up persistent session environment...'));
+    
+    try {
+      // Get the setup script content
+      const fs = await import('fs/promises');
+      const path = await import('path');
+      
+      const scriptPath = path.join(__dirname, '../../scripts/setup-persistent-session.sh');
+      const scriptContent = await fs.readFile(scriptPath, 'utf-8');
+      
+      // Upload and execute the setup script
+      const uploadCommand = `cat > /tmp/setup-persistent.sh << 'SCRIPT_EOF'
+${scriptContent}
+SCRIPT_EOF
+chmod +x /tmp/setup-persistent.sh`;
+      
+      await this.api.executeCommand(codespaceName, uploadCommand);
+      
+      console.log(chalk.blue('🚀 Running persistent session setup...'));
+      const setupResult = await this.api.executeCommand(codespaceName, 'bash /tmp/setup-persistent.sh');
+      
+      console.log(chalk.green('✅ Persistent session setup completed'));
+      console.log(chalk.gray('Setup output:'), setupResult.substring(0, 300) + (setupResult.length > 300 ? '...' : ''));
+      
+      // Clean up the script
+      await this.api.executeCommand(codespaceName, 'rm -f /tmp/setup-persistent.sh');
+      
+    } catch (error) {
+      console.error(chalk.red('❌ Failed to setup persistent session:'), (error as Error).message);
+      throw error;
+    }
+  }
+
+  /**
    * Set up webhook for status updates
    */
   private async setupWebhook(codespaceName: string, taskId: string): Promise<void> {

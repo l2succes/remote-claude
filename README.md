@@ -1,156 +1,292 @@
-# Remote Claude
+██████╗ ███████╗███╗   ███╗ ██████╗ ████████╗███████╗
+██╔══██╗██╔════╝████╗ ████║██╔═══██╗╚══██╔══╝██╔════╝
+██████╔╝█████╗  ██╔████╔██║██║   ██║   ██║   █████╗  
+██╔══██╗██╔══╝  ██║╚██╔╝██║██║   ██║   ██║   ██╔══╝  
+██║  ██║███████╗██║ ╚═╝ ██║╚██████╔╝   ██║   ███████╗
+╚═╝  ╚═╝╚══════╝╚═╝     ╚═╝ ╚═════╝    ╚═╝   ╚══════╝
+                                                      
+ ██████╗██╗      █████╗ ██╗   ██╗██████╗ ███████╗     
+██╔════╝██║     ██╔══██╗██║   ██║██╔══██╗██╔════╝     
+██║     ██║     ███████║██║   ██║██║  ██║█████╗       
+██║     ██║     ██╔══██║██║   ██║██║  ██║██╔══╝       
+╚██████╗███████╗██║  ██║╚██████╔╝██████╔╝███████╗     
+ ╚═════╝╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚═════╝ ╚══════╝     
+```
 
-> A CLI tool for running Claude Code in GitHub Codespaces with remote task execution and notification capabilities.
+# Remote Claude (Claude in Cloud)
+
+> **Execute Claude Code tasks remotely in GitHub Codespaces with comprehensive task management and notification capabilities**
 
 [![npm version](https://badge.fury.io/js/remote-claude.svg)](https://badge.fury.io/js/remote-claude)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Node.js Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen)](https://nodejs.org/)
 
-## 🚀 What is Remote Claude?
+## 🚀 Overview
 
-Remote Claude (`rcli`) allows you to run long-running Claude Code tasks in GitHub Codespaces while you close your computer and get notified when they're done. Perfect for overnight refactoring, large-scale code analysis, or any task that would otherwise tie up your local machine.
+Remote Claude (also known as **Claude in Cloud**) is a powerful CLI tool that enables you to execute Claude Code tasks in GitHub Codespaces remotely. It provides seamless integration with GitHub's cloud development environment, allowing you to run AI-powered coding tasks with comprehensive notification and task management capabilities.
 
-## ✨ Key Features
+### ✨ Key Features
 
-- **🏗️ Remote Execution**: Run Claude Code tasks in isolated GitHub Codespaces
-- **📱 Smart Notifications**: Get notified via email, Slack, or push notifications when tasks complete
-- **⚡ Persistent Sessions**: Tasks continue even if you lose connection or close your laptop
-- **📊 Task Management**: Queue, monitor, and manage multiple concurrent tasks
-- **🔄 Git Integration**: Automatic commits and PR creation for completed work
-- **📁 Result Collection**: Download outputs, logs, and artifacts automatically
-
-## 🎯 Problem Solved
-
-**Before Remote Claude:**
-- Long-running tasks tie up your local machine
-- Connection drops break task continuity  
-- No way to run tasks overnight or while away
-- Manual monitoring required
-
-**After Remote Claude:**
-- Start tasks and close your computer
-- Get notified when work is complete
-- Resume or review results anytime
-- Run multiple tasks in parallel
+- 🌩️ **Remote Execution**: Run Claude Code tasks in GitHub Codespaces
+- 📧 **Multi-Channel Notifications**: Email, Slack, and webhook notifications
+- 📊 **Task Management**: Track, monitor, and manage multiple concurrent tasks
+- 🔐 **Secure Authentication**: Multiple GitHub authentication methods
+- ⚡ **Real-time Updates**: Live task progress monitoring
+- 🎯 **Flexible Configuration**: Customizable settings and templates
+- 🔄 **Auto-cleanup**: Automatic resource management
+- 📈 **Priority Queuing**: Task prioritization and scheduling
 
 ## 📦 Installation
 
+### Prerequisites
+
+- **Node.js 18+** 
+- **GitHub account** with Codespaces access
+- **GitHub Personal Access Token** with `repo` and `codespace` scopes ([Setup Guide](./docs/setup-guide.md#github-personal-access-token))
+- **[GitHub CLI](https://cli.github.com/)** (optional, but recommended)
+
+### Install from NPM
+
 ```bash
-# Install globally via npm
 npm install -g remote-claude
-
-# Or use with npx (no installation needed)
-npx remote-claude --help
 ```
 
-## 🔧 Quick Setup
+### Install from Source
 
-1. **Configure GitHub Access**
-   ```bash
-   rcli config github --token YOUR_GITHUB_TOKEN
-   ```
-
-2. **Set Up Notifications**
-   ```bash
-   rcli config notify --email your@email.com
-   # Optional: Add Slack webhook
-   rcli config notify --slack YOUR_SLACK_WEBHOOK_URL
-   ```
-
-3. **Run Your First Task**
-   ```bash
-   rcli run "Fix all TypeScript errors in the codebase" \
-     --repo owner/repo \
-     --notify-on-complete
-   ```
-
-## 💡 Usage Examples
-
-### Overnight Refactoring
 ```bash
-rcli run "Refactor payment module to use new architecture" \
-  --timeout 8h \
-  --notify email,slack \
-  --auto-commit \
-  --branch refactor/payment-module
+git clone https://github.com/l2succes/remote-claude.git
+cd remote-claude
+npm install
+npm run build
+npm link
 ```
 
-### Code Review Preparation
+## 🚀 Quick Start
+
+### 1. Authentication Setup
+
+First, ensure you have a GitHub token with proper permissions. See our [Setup Guide](./docs/setup-guide.md) for detailed instructions.
+
 ```bash
-rcli run "Review PR #123 and provide detailed feedback" \
-  --repo owner/repo \
-  --pr 123 \
-  --output code-review.md \
-  --notify email
+# Configure with your GitHub token
+rclaude config github --token YOUR_GITHUB_TOKEN
+
+# Or use interactive setup
+rclaude config github
+
+# Set your default repository (optional)
+rclaude config github --repository owner/repo-name
 ```
 
-### CI/CD Integration
+### 2. Configure Notifications (Optional)
+
 ```bash
-rcli run "Analyze test failures and suggest fixes" \
-  --trigger webhook \
-  --context ci-failure \
-  --notify slack:#dev-team
+# Configure email notifications
+rclaude config notify --email your@email.com
+
+# Configure Slack notifications
+rclaude config notify --slack https://hooks.slack.com/services/...
 ```
 
-## 📋 Available Commands
+### 3. Run Your First Task
+
+```bash
+# Execute a simple task
+rclaude run "Fix the bug in src/utils.js" --repo owner/repo
+
+# Run with notifications
+rclaude run "Add unit tests for authentication" --repo owner/repo --notify-on-complete
+```
+
+### 4. Monitor Progress
+
+```bash
+# Check task status
+rclaude status
+
+# Watch real-time updates
+rclaude status --watch
+```
+
+## 📖 Usage Examples
+
+### Basic Task Execution
+
+```bash
+# Simple task
+rclaude run "Refactor the user authentication module"
+
+# With specific repository and branch
+rclaude run "Add error handling" --repo owner/repo --branch feature/error-handling
+
+# High priority task with notifications
+rclaude run "Critical security fix" --priority high --notify-on-start --notify-on-complete
+```
+
+### Advanced Task Management
+
+```bash
+# Long-running task with custom timeout
+rclaude run "Complete code review and optimization" --timeout 3600
+
+# Auto-commit changes and create PR
+rclaude run "Implement new feature" --auto-commit --pull-request
+
+# Keep codespace for debugging
+rclaude run "Debug performance issue" --keep-codespace
+```
+
+### Task Monitoring
+
+```bash
+# View all tasks
+rclaude status
+
+# Monitor specific task
+rclaude status task-abc123
+
+# View task results
+rclaude results task-abc123
+
+# Download result files
+rclaude results task-abc123 --download ./results/
+```
+
+## ⚙️ Configuration
+
+Configuration is stored in `~/.rclirc` and supports multiple formats (JSON, YAML, JS).
+
+### Example Configuration
+
+```json
+{
+  "github": {
+    "defaultRepository": "owner/repo-name",
+    "defaultMachine": "basicLinux32gb",
+    "defaultIdleTimeout": 30
+  },
+  "notifications": {
+    "email": {
+      "smtp": {
+        "host": "smtp.gmail.com",
+        "port": 587,
+        "secure": false,
+        "auth": {
+          "user": "your@email.com",
+          "pass": "your-app-password"
+        }
+      },
+      "from": "your@email.com",
+      "to": "notifications@email.com"
+    },
+    "slack": {
+      "webhook": "https://hooks.slack.com/services/...",
+      "channel": "#dev-notifications",
+      "username": "Remote Claude"
+    }
+  },
+  "tasks": {
+    "maxConcurrent": 3,
+    "defaultTimeout": 1800,
+    "autoCleanup": true
+  }
+}
+```
+
+## 🔧 Commands Reference
+
+### Core Commands
 
 | Command | Description |
 |---------|-------------|
-| `rcli run <task>` | Execute a Claude Code task remotely |
-| `rcli status` | Show running and completed tasks |
-| `rcli results <task-id>` | Download results from a completed task |
-| `rcli config` | Manage authentication and notifications |
-| `rcli logs <task-id>` | View task execution logs |
-| `rcli cancel <task-id>` | Cancel a running task |
+| `rclaude run <task>` | Execute a Claude Code task |
+| `rclaude status [taskId]` | View task status and progress |
+| `rclaude results [taskId]` | View and manage task results |
+| `rclaude cancel <taskId>` | Cancel running tasks |
+| `rclaude config <section>` | Manage configuration |
 
-## 🏗️ How It Works
+### Configuration Commands
 
-```mermaid
-graph LR
-    A[Local CLI] --> B[GitHub API]
-    B --> C[Codespace]
-    C --> D[Claude Code]
-    D --> E[Task Results]
-    E --> F[Notifications]
-    F --> G[You Get Notified!]
+| Command | Description |
+|---------|-------------|
+| `rclaude config github` | Configure GitHub authentication |
+| `rclaude config notify` | Configure notification channels |
+| `rclaude config tasks` | Configure task defaults |
+
+## 📧 Notification System
+
+Remote Claude supports multiple notification channels to keep you informed about task progress:
+
+### Supported Channels
+
+- **📧 Email (SMTP)**: HTML email templates with attachments
+- **💬 Slack**: Rich message formatting with interactive buttons
+- **🔗 Custom Webhooks**: JSON payload format for custom integrations
+
+### Notification Events
+
+- **Task Started**: When a task begins execution
+- **Task Progress**: Optional progress updates
+- **Task Completed**: When a task finishes successfully
+- **Task Failed**: When a task encounters an error
+- **System Events**: Codespace creation, resource warnings, etc.
+
+## 🏗️ Architecture
+
 ```
-
-1. **CLI creates a Codespace** with Claude Code pre-installed
-2. **Task executes remotely** in isolated environment
-3. **Progress monitored** via webhooks and status API
-4. **Results collected** automatically when complete
-5. **Notifications sent** via your preferred channels
-6. **Codespace cleaned up** to save costs
-
-## 🔒 Security & Privacy
-
-- Secure GitHub token storage using OS keychain
-- Scoped permissions (minimal required access)
-- Automatic cleanup of temporary files
-- Optional result encryption
-- Webhook signature verification
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   CLI Client    │───▶│  Task Manager   │───▶│  GitHub API     │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+         │                       │                       │
+         ▼                       ▼                       ▼
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│  Notification   │    │   Webhook       │    │   Codespace     │
+│    System       │    │   Server        │    │   Environment   │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+```
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see our [Contributing Guide](./CONTRIBUTING.md) for details.
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
 
-## 📚 Documentation
+### Development Setup
 
-- [📖 Architecture](./docs/architecture.md) - Detailed system design
-- [⚙️ Setup Guide](./docs/setup-codespaces.md) - GitHub Codespaces configuration
-- [🔔 Notifications](./docs/notifications.md) - Notification system setup
-- [🛠️ Development](./docs/implementation-plan.md) - Development roadmap
-- [❓ FAQ](./docs/faq.md) - Frequently asked questions
+```bash
+git clone https://github.com/l2succes/remote-claude.git
+cd remote-claude
+npm install
+npm run dev
+```
+
+### Running Tests
+
+```bash
+npm test
+npm run test:watch
+```
 
 ## 📄 License
 
-MIT License - see [LICENSE](./LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 🆘 Support
 
-- 🐛 [Report Issues](https://github.com/l2succes/remote-claude/issues)
-- 💬 [Discussions](https://github.com/l2succes/remote-claude/discussions)
-- 📧 Email: support@remote-claude.com
+- 📖 **Documentation**:
+  - [Setup Guide](./docs/setup-guide.md) - Detailed setup instructions
+  - [Persistent Sessions](./docs/persistent-sessions.md) - Interactive session management
+  - [Troubleshooting](./docs/troubleshooting.md) - Common issues and solutions
+  - [API Reference](./docs/api-reference.md) - Complete command reference
+- 🐛 **Issues**: [GitHub Issues](https://github.com/l2succes/remote-claude/issues)
+- 💬 **Discussions**: [GitHub Discussions](https://github.com/l2succes/remote-claude/discussions)
+
+## 🙏 Acknowledgments
+
+- Built with ❤️ using TypeScript and Node.js
+- Powered by GitHub Codespaces
+- Inspired by the need for remote AI-powered development
 
 ---
 
-**Made with ❤️ for developers who want to be more productive**
+<div align="center">
+  <strong>Remote Claude - Bringing Claude to the Cloud ☁️</strong>
+</div>

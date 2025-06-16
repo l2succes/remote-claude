@@ -19,6 +19,7 @@ export interface RunOptions {
   output?: string;
   name?: string;
   interactive?: boolean;
+  persistent?: boolean;
 }
 
 export async function runCommand(task: string, options: RunOptions): Promise<void> {
@@ -83,17 +84,29 @@ export async function runCommand(task: string, options: RunOptions): Promise<voi
       // Install Claude Code
       await codespaceManager.installClaudeCode(codespace.name);
       
+      // Setup persistent session environment if requested or if interactive
+      if (options.persistent !== false) {
+        await codespaceManager.setupPersistentSession(codespace.name);
+      }
+      
       console.log(chalk.green('✅ Interactive session ready!'));
       console.log(chalk.blue('🔗 Connecting to codespace...'));
       
+      if (options.persistent !== false) {
+        console.log(chalk.gray('💡 Auto-setup: tmux session will be created'));
+        console.log(chalk.gray('💡 Use Ctrl+B then D to detach and keep running'));
+        console.log(chalk.gray('💡 Reconnect with: tmux attach-session -t claude-work'));
+      }
+      
       // Connect interactively via GitHub CLI
       const { spawn } = require('child_process');
-      const interactiveProcess = spawn('gh', [
-        'codespace', 'ssh', 
-        '--codespace', codespace.name,
-        '--', 
-        'claude-code'
-      ], {
+      
+      // Choose connection command based on persistent option
+      const connectArgs = options.persistent !== false 
+        ? ['codespace', 'ssh', '--codespace', codespace.name, '--', '~/start-claude.sh']
+        : ['codespace', 'ssh', '--codespace', codespace.name, '--', 'claude-code'];
+      
+      const interactiveProcess = spawn('gh', connectArgs, {
         stdio: 'inherit', // Pass through stdin/stdout/stderr
       });
       
@@ -181,6 +194,8 @@ export function createRunCommand(): Command {
     .option('-t, --timeout <seconds>', 'Task timeout in seconds', '7200')
     .option('-p, --priority <level>', 'Task priority (low, normal, high, urgent)', 'normal')
     .option('-i, --interactive', 'Run in interactive mode (connects directly to codespace)')
+    .option('--persistent', 'Enable persistent session with tmux (default for interactive)')
+    .option('--no-persistent', 'Disable persistent session setup')
     .option('-n, --notify <channels>', 'Notification channels (comma-separated)')
     .option('--notify-on-start', 'Send notification when task starts')
     .option('--notify-on-complete', 'Send notification when task completes')

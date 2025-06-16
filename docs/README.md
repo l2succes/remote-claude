@@ -1,132 +1,77 @@
-# Remote Claude CLI
+# Remote Claude Documentation
 
-A CLI tool for running Claude Code in GitHub Codespaces with remote task execution and notification capabilities.
+Welcome to the Remote Claude documentation! This directory contains comprehensive guides and references for using and configuring Remote Claude.
 
-## Overview
+## 📚 Documentation Overview
 
-This tool allows you to:
-- Start long-running Claude Code tasks in GitHub Codespaces
-- Close your local machine while tasks continue remotely
-- Receive notifications when tasks complete
-- Monitor task progress from anywhere
-- Resume or review completed work
+### Getting Started
+- **[Setup Guide](./setup-guide.md)** - Complete installation and configuration instructions
+  - Prerequisites and requirements
+  - GitHub token generation with required scopes
+  - Initial configuration
+  - Verification steps
+- **[Persistent Sessions](./persistent-sessions.md)** - Guide to persistent Claude Code sessions
+  - Interactive session management
+  - Background execution workflows
+  - Tmux integration and commands
 
-## Problem Statement
+### Usage & Reference
+- **[API Reference](./api-reference.md)** - Complete command and option reference
+  - All commands with examples
+  - Configuration options
+  - Environment variables
 
-When working with Claude Code on complex tasks:
-- Long-running tasks tie up your local machine
-- Connection interruptions can break task continuity
-- No way to get notified when remote tasks complete
-- Limited ability to run tasks overnight or while away
+### Troubleshooting
+- **[Troubleshooting Guide](./troubleshooting.md)** - Solutions for common issues
+  - Installation problems
+  - Authentication errors
+  - Codespace issues
+  - Performance optimization
 
-## Solution
+### Advanced Topics
+- **[Advanced Setup](./advanced-setup.md)** - Advanced configuration scenarios
+  - Email and Slack notifications
+  - Team collaboration setup
+  - CI/CD integration
+  - Security best practices
 
-A CLI wrapper that:
-1. Spins up GitHub Codespaces with Claude Code pre-configured
-2. Executes tasks remotely with persistent sessions
-3. Monitors task completion and sends notifications
-4. Provides task management and result retrieval
+### Architecture & Implementation
+- **[Architecture](./architecture.md)** - System design and architecture
+- **[Setup Codespaces](./setup-codespaces.md)** - GitHub Codespaces configuration
+- **[Notifications](./notifications.md)** - Notification system details
+- **[Implementation Plan](./implementation-plan.md)** - Development roadmap
 
-## Key Features
+## 🚀 Quick Links
 
-### Remote Execution
-- Launch Claude Code tasks in isolated Codespaces
-- Persistent sessions that survive connection drops
-- Automatic environment setup and dependency management
+- [Main README](../README.md) - Project overview and quick start
+- [GitHub Issues](https://github.com/l2succes/remote-claude/issues) - Report bugs or request features
+- [GitHub Discussions](https://github.com/l2succes/remote-claude/discussions) - Community discussions
 
-### Notification System
-- Email notifications on task completion
-- Slack integration for team notifications
-- Mobile push notifications via supported services
-- Webhook support for custom integrations
+## 📖 Documentation Roadmap
 
-### Task Management
-- Queue multiple tasks for sequential execution
-- Monitor running tasks and their status
-- Cancel or pause running tasks
-- Resume interrupted tasks
+Planned documentation additions:
+- Usage examples and tutorials
+- Integration guides for popular CI/CD platforms
+- Best practices for large-scale deployments
+- API SDK documentation
+- Video tutorials and demos
 
-### Result Management
-- Automatically save task outputs and artifacts
-- Git integration for committing completed work
-- Download results to local machine
-- Share results with team members
+## 🤝 Contributing to Documentation
 
-## Architecture
+We welcome documentation improvements! If you find any errors or have suggestions:
 
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Local CLI     │───▶│  GitHub API     │───▶│   Codespaces    │
-│                 │    │                 │    │                 │
-│ - Task Queue    │    │ - Codespace     │    │ - Claude Code   │
-│ - Status Monitor│    │   Management    │    │ - Task Runner   │
-│ - Notifications │    │ - Webhook       │    │ - Status API    │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                                              │
-         │              ┌─────────────────┐             │
-         └─────────────▶│  Notification   │◀────────────┘
-                        │    Services     │
-                        │                 │
-                        │ - Email/SMTP    │
-                        │ - Slack         │
-                        │ - Webhooks      │
-                        └─────────────────┘
-```
+1. **Small fixes**: Submit a pull request directly
+2. **Large changes**: Open an issue first to discuss
+3. **New guides**: Check with maintainers about scope and placement
 
-## Quick Start
+### Documentation Style Guide
 
-```bash
-# Install the CLI
-npm install -g remote-claude-cli
+- Use clear, concise language
+- Include practical examples
+- Add table of contents for long documents
+- Test all code examples before submitting
+- Use proper markdown formatting
 
-# Configure GitHub access
-rcli config github --token YOUR_GITHUB_TOKEN
+## 📄 License
 
-# Configure notifications
-rcli config notify --email your@email.com --slack YOUR_SLACK_WEBHOOK
-
-# Run a task remotely
-rcli run "Fix all TypeScript errors in the codebase" --repo owner/repo --notify-on-complete
-
-# Monitor running tasks
-rcli status
-
-# Get results
-rcli results task-id-123
-```
-
-## Use Cases
-
-### Overnight Code Refactoring
-```bash
-rcli run "Refactor payment module to use new architecture" \
-  --timeout 8h \
-  --notify email,slack \
-  --auto-commit \
-  --branch refactor/payment-module
-```
-
-### CI/CD Integration
-```bash
-rcli run "Analyze test failures and suggest fixes" \
-  --trigger webhook \
-  --context ci-failure \
-  --notify slack:#dev-team
-```
-
-### Code Review Preparation
-```bash
-rcli run "Review PR #123 and provide detailed feedback" \
-  --repo owner/repo \
-  --pr 123 \
-  --output code-review.md \
-  --notify email
-```
-
-## Next Steps
-
-See the following documentation:
-- [Architecture](./architecture.md) - Detailed system design
-- [Setup](./setup-codespaces.md) - GitHub Codespaces configuration
-- [Notifications](./notifications.md) - Notification system setup
-- [Implementation](./implementation-plan.md) - Development roadmap
+This documentation is part of the Remote Claude project and is licensed under the [MIT License](../LICENSE).
