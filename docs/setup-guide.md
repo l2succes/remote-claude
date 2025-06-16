@@ -123,6 +123,19 @@ If you're using GitHub CLI authentication, ensure it has the codespace scope:
 gh auth refresh -h github.com -s codespace
 ```
 
+This will prompt you with:
+1. A one-time device code (e.g., `49FC-7D7A`)
+2. A URL to visit: https://github.com/login/device
+
+**Steps to complete**:
+1. Copy the one-time code shown in terminal
+2. Open the provided URL in your browser
+3. Enter the code when prompted
+4. Authorize the additional `codespace` scope when GitHub requests permissions
+5. Return to terminal - authentication should complete automatically
+
+**Why this is needed**: The `codespace` scope is required to create, manage, and connect to GitHub Codespaces. Without it, you'll see "403 Must have admin rights to Repository" errors.
+
 ## Installation
 
 ### Installing from NPM (Recommended)

@@ -83,14 +83,32 @@ nvm use 18
 
 ### "Must have admin rights to Repository"
 
-**Problem**: Error when trying to create codespace.
+**Problem**: Error when trying to create codespace or list codespaces.
 
-**Solution**: Your token is missing the `codespace` scope:
-```bash
-# Generate new token with codespace scope
-# Then update configuration
-rclaude config github --token NEW_TOKEN_WITH_CODESPACE_SCOPE
-```
+**Solutions**:
+
+1. **If using GitHub CLI authentication**:
+   ```bash
+   gh auth refresh -h github.com -s codespace
+   ```
+   
+   Follow the prompts:
+   - Copy the one-time code (e.g., `49FC-7D7A`)
+   - Open https://github.com/login/device in your browser
+   - Enter the code and authorize the `codespace` scope
+
+2. **If using personal access token**:
+   ```bash
+   # Generate new token with codespace scope
+   # Then update configuration
+   rclaude config github --token NEW_TOKEN_WITH_CODESPACE_SCOPE
+   ```
+
+3. **Verify scope is added**:
+   ```bash
+   gh auth status
+   # Should show 'codespace' in token scopes
+   ```
 
 ### Token Not Persisting
 
@@ -346,6 +364,30 @@ rclaude logs task-id --verbose
 Check log files location:
 - macOS/Linux: `~/.remote-claude/logs/`
 - Windows: `%APPDATA%\remote-claude\logs\`
+
+## Common Error Messages and Solutions
+
+### "This API operation needs the 'codespace' scope"
+
+**Problem**: GitHub CLI doesn't have permission to manage codespaces.
+
+**Solution**: Add the codespace scope:
+```bash
+gh auth refresh -h github.com -s codespace
+```
+
+**Follow these steps**:
+1. Copy the device code displayed (e.g., `49FC-7D7A`)
+2. Open https://github.com/login/device in your browser
+3. Enter the code when prompted
+4. Click "Authorize" when GitHub requests codespace permissions
+5. Return to terminal - authentication should complete
+
+**Verify it worked**:
+```bash
+gh auth status
+# Should show 'codespace' in the token scopes list
+```
 
 ## Getting More Help
 

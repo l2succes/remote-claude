@@ -63,29 +63,20 @@ npm link
 
 ## 🚀 Quick Start
 
-### 1. Authentication Setup
-
-First, ensure you have a GitHub token with proper permissions. See our [Setup Guide](./docs/setup-guide.md) for detailed instructions.
+### 1. Install Remote Claude
 
 ```bash
-# Configure with your GitHub token
-rclaude config github --token YOUR_GITHUB_TOKEN
+npm install -g remote-claude
+```
 
-# Or use interactive setup
-rclaude config github
+### 2. Setup GitHub Authentication
+
+```bash
+# Configure with your GitHub token (get one at https://github.com/settings/tokens)
+rclaude config github --token YOUR_GITHUB_TOKEN
 
 # Set your default repository (optional)
 rclaude config github --repository owner/repo-name
-```
-
-### 2. Configure Notifications (Optional)
-
-```bash
-# Configure email notifications
-rclaude config notify --email your@email.com
-
-# Configure Slack notifications
-rclaude config notify --slack https://hooks.slack.com/services/...
 ```
 
 ### 3. Run Your First Task
@@ -94,8 +85,8 @@ rclaude config notify --slack https://hooks.slack.com/services/...
 # Execute a simple task
 rclaude run "Fix the bug in src/utils.js" --repo owner/repo
 
-# Run with notifications
-rclaude run "Add unit tests for authentication" --repo owner/repo --notify-on-complete
+# Or start an interactive session for live coding
+rclaude run --interactive "Debug the authentication issue" --repo owner/repo
 ```
 
 ### 4. Monitor Progress
@@ -104,9 +95,24 @@ rclaude run "Add unit tests for authentication" --repo owner/repo --notify-on-co
 # Check task status
 rclaude status
 
-# Watch real-time updates
-rclaude status --watch
+# List active interactive sessions
+rclaude session --list
 ```
+
+### 5. Common Workflows
+
+```bash
+# High priority task with notifications
+rclaude run "Critical security fix" --priority high --notify-on-complete
+
+# Auto-commit changes and create PR
+rclaude run "Implement new feature" --auto-commit --pull-request
+
+# Connect to existing interactive session
+rclaude session --connect codespace-name
+```
+
+> **💡 Pro Tip**: Use `--interactive` for live coding sessions that persist even if you disconnect!
 
 ## 📖 Usage Examples
 
