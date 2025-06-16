@@ -52,26 +52,117 @@ check_codespace() {
     fi
 }
 
+# Detect package manager
+detect_package_manager() {
+    if command -v apt-get &> /dev/null; then
+        echo "apt"
+    elif command -v yum &> /dev/null; then
+        echo "yum"
+    elif command -v dnf &> /dev/null; then
+        echo "dnf"
+    elif command -v pacman &> /dev/null; then
+        echo "pacman"
+    elif command -v brew &> /dev/null; then
+        echo "brew"
+    else
+        echo "unknown"
+    fi
+}
+
+# Install tmux based on package manager
+install_tmux() {
+    local pkg_manager=$(detect_package_manager)
+    
+    log_info "Detected package manager: $pkg_manager"
+    
+    case $pkg_manager in
+        "apt")
+            log_info "Installing tmux with apt..."
+            sudo apt-get update -qq || log_warning "Failed to update package list"
+            sudo apt-get install -y tmux || {
+                log_error "Failed to install tmux with apt-get"
+                return 1
+            }
+            ;;
+        "yum")
+            log_info "Installing tmux with yum..."
+            sudo yum install -y tmux || {
+                log_error "Failed to install tmux with yum"
+                return 1
+            }
+            ;;
+        "dnf")
+            log_info "Installing tmux with dnf..."
+            sudo dnf install -y tmux || {
+                log_error "Failed to install tmux with dnf"
+                return 1
+            }
+            ;;
+        "pacman")
+            log_info "Installing tmux with pacman..."
+            sudo pacman -S --noconfirm tmux || {
+                log_error "Failed to install tmux with pacman"
+                return 1
+            }
+            ;;
+        "brew")
+            log_info "Installing tmux with brew..."
+            brew install tmux || {
+                log_error "Failed to install tmux with brew"
+                return 1
+            }
+            ;;
+        *)
+            log_error "Unknown package manager. Please install tmux manually:"
+            echo "  • Ubuntu/Debian: sudo apt-get install tmux"
+            echo "  • CentOS/RHEL: sudo yum install tmux"
+            echo "  • Fedora: sudo dnf install tmux"
+            echo "  • Arch: sudo pacman -S tmux"
+            echo "  • macOS: brew install tmux"
+            return 1
+            ;;
+    esac
+}
+
 # Install dependencies
 install_dependencies() {
     log_info "Installing dependencies..."
     
-    # Update package list
-    sudo apt-get update -qq
-    
     # Install tmux if not present
     if ! command -v tmux &> /dev/null; then
-        log_info "Installing tmux..."
-        sudo apt-get install -y tmux
-        log_success "tmux installed"
+        log_info "tmux not found, installing..."
+        if install_tmux; then
+            log_success "tmux installed successfully"
+        else
+            log_error "Failed to install tmux. Please install it manually and run this script again."
+            exit 1
+        fi
     else
-        log_success "tmux already installed"
+        log_success "tmux already installed ($(tmux -V))"
     fi
     
-    # Install other useful tools
+    # Install other useful tools based on package manager
+    local pkg_manager=$(detect_package_manager)
     if ! command -v htop &> /dev/null; then
         log_info "Installing monitoring tools..."
-        sudo apt-get install -y htop tree curl jq
+        case $pkg_manager in
+            "apt")
+                sudo apt-get install -y htop tree curl jq 2>/dev/null || log_warning "Some tools failed to install"
+                ;;
+            "yum"|"dnf")
+                sudo $pkg_manager install -y htop tree curl jq 2>/dev/null || log_warning "Some tools failed to install"
+                ;;
+            "pacman")
+                sudo pacman -S --noconfirm htop tree curl jq 2>/dev/null || log_warning "Some tools failed to install"
+                ;;
+            "brew")
+                brew install htop tree curl jq 2>/dev/null || log_warning "Some tools failed to install"
+                ;;
+            *)
+                log_warning "Unknown package manager, skipping optional tools installation"
+                ;;
+        esac
+        log_success "Additional tools installed"
     fi
 }
 

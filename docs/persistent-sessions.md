@@ -201,6 +201,34 @@ rclaude run --interactive --auto-commit "Fix bugs" --repo user/repo
 # Changes will be automatically committed when you're done
 ```
 
+## 🛠️ Manual Setup (When Automated Setup Fails)
+
+If Remote Claude's automated setup fails, you can manually set up the persistent session:
+
+### Option 1: Use Setup Script
+```bash
+# In your codespace terminal
+curl -sSL https://raw.githubusercontent.com/l2succes/remote-claude/main/scripts/manual-codespace-setup.sh | bash
+```
+
+### Option 2: Manual Steps
+```bash
+# 1. Install tmux
+sudo apt update && sudo apt install -y tmux
+
+# 2. Install Claude Code
+npm install -g @anthropic-ai/claude-code-cli
+
+# 3. Create persistent session
+tmux new-session -d -s claude-work
+
+# 4. Start Claude Code in session
+tmux send-keys -t claude-work 'claude-code' Enter
+
+# 5. Attach to work
+tmux attach-session -t claude-work
+```
+
 ## 🚨 Important Notes
 
 1. **Codespace Costs**: GitHub Codespaces has usage limits and costs

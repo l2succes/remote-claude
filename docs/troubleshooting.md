@@ -170,6 +170,48 @@ nvm use 18
    rclaude run "task" --machine-type basicLinux32gb
    ```
 
+### "tmux: command not found"
+
+**Problem**: tmux is not installed in the codespace.
+
+**Solutions**:
+
+1. **Use the manual setup script** (recommended):
+   ```bash
+   # In your codespace, download and run the setup script
+   curl -sSL https://raw.githubusercontent.com/l2succes/remote-claude/main/scripts/manual-codespace-setup.sh | bash
+   ```
+
+2. **Manual installation**:
+   ```bash
+   # Ubuntu/Debian (most GitHub Codespaces)
+   sudo apt update && sudo apt install -y tmux
+   
+   # CentOS/RHEL
+   sudo yum install -y tmux
+   
+   # Fedora
+   sudo dnf install -y tmux
+   ```
+
+3. **Complete manual setup**:
+   ```bash
+   # Install tmux
+   sudo apt update && sudo apt install -y tmux
+   
+   # Install Claude Code
+   npm install -g @anthropic-ai/claude-code-cli
+   
+   # Create session
+   tmux new-session -d -s claude-work
+   
+   # Start Claude Code in session
+   tmux send-keys -t claude-work 'claude-code' Enter
+   
+   # Attach to session
+   tmux attach-session -t claude-work
+   ```
+
 ### "Prebuild not found"
 
 **Problem**: Codespace creation fails due to missing prebuild.
