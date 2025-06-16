@@ -85,7 +85,7 @@ async function connectToSession(codespaceName: string): Promise<void> {
     'codespace', 'ssh', 
     '--codespace', codespaceName,
     '--', 
-    'claude-code'
+    'claude'
   ], {
     stdio: 'inherit',
   });

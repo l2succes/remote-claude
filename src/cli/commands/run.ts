@@ -104,7 +104,7 @@ export async function runCommand(task: string, options: RunOptions): Promise<voi
       // Choose connection command based on persistent option
       const connectArgs = options.persistent !== false 
         ? ['codespace', 'ssh', '--codespace', codespace.name, '--', '~/start-claude.sh']
-        : ['codespace', 'ssh', '--codespace', codespace.name, '--', 'claude-code'];
+        : ['codespace', 'ssh', '--codespace', codespace.name, '--', 'claude'];
       
       const interactiveProcess = spawn('gh', connectArgs, {
         stdio: 'inherit', // Pass through stdin/stdout/stderr

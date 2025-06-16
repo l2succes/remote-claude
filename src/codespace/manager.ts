@@ -170,14 +170,14 @@ export class CodespaceManager extends EventEmitter {
     
     try {
       // Install Claude Code via npm
-      const installCommand = 'npm install -g @anthropic-ai/claude-code-cli';
+      const installCommand = 'npm install -g @anthropic-ai/claude-code';
       const result = await this.api.executeCommand(codespaceName, installCommand);
       
       console.log(chalk.green('✅ Claude Code installed successfully'));
       console.log(chalk.gray('Installation output:'), result.substring(0, 200) + (result.length > 200 ? '...' : ''));
       
       // Verify installation
-      const verifyCommand = 'claude-code --version';
+      const verifyCommand = 'claude --version';
       await this.api.executeCommand(codespaceName, verifyCommand);
       
     } catch (error) {
@@ -263,7 +263,7 @@ chmod +x /tmp/webhook.sh`;
    * Build Claude Code command from task options
    */
   private buildClaudeCommand(options: TaskOptions): string {
-    const args = ['claude-code'];
+    const args = ['claude'];
     
     // Add the task
     args.push(`"${options.task}"`);
