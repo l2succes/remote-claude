@@ -104,6 +104,9 @@ rclaude session --list
 # High priority task with notifications
 rclaude run "Critical security fix" --priority high --notify-on-complete
 
+# Long-running task with extended timeout
+rclaude run "Overnight analysis" --idle-timeout 480 --machine-type standardLinux32gb
+
 # Auto-commit changes and create PR
 rclaude run "Implement new feature" --auto-commit --pull-request
 

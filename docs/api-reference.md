@@ -53,6 +53,8 @@ rclaude run [options] <task>
 | `--interactive` | `-i` | Run in interactive mode | false |
 | `--persistent` | - | Enable persistent session with tmux | true (interactive) |
 | `--no-persistent` | - | Disable persistent session | - |
+| `--idle-timeout <minutes>` | - | Codespace idle timeout in minutes (30-1440) | 30 |
+| `--machine-type <type>` | - | Codespace machine type | basicLinux32gb |
 | `--notify <channels>` | `-n` | Notification channels (comma-separated) | From config |
 | `--notify-on-start` | - | Send notification when task starts | false |
 | `--notify-on-complete` | - | Send notification when task completes | false |
@@ -87,10 +89,22 @@ rclaude run "Refactor entire codebase" \
   --auto-commit \
   --pull-request
 
+# Overnight task with extended idle timeout
+rclaude run "Comprehensive analysis" \
+  --idle-timeout 480 \
+  --machine-type standardLinux32gb \
+  --notify-on-complete
+
+# High-performance computing task
+rclaude run "ML model training" \
+  --machine-type premiumLinux \
+  --idle-timeout 1440 \
+  --interactive
+
 # Interactive debugging session
 rclaude run "Debug performance issue" \
   --interactive \
-  --keep-codespace
+  --idle-timeout 120
 ```
 
 ### status
