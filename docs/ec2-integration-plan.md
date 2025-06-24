@@ -1,0 +1,415 @@
+# EC2 Integration Plan for Remote Claude
+
+## Overview
+
+This document outlines the design and implementation plan for extending Remote Claude with EC2 support as an alternative backend to GitHub Codespaces. The goal is to enable long-running Claude tasks and Docker execution in the cloud with cost optimization and flexibility.
+
+## Current Architecture Analysis
+
+### Existing Components
+
+**CLI Layer (`src/cli/`)**
+- Command handlers for `run`, `config`, `status`, `logs`, `results`, `cancel`, `session`
+- Configuration management with GitHub tokens, notifications, and defaults
+- Authentication handling and Git utilities
+
+**Codespace Management (`src/codespace/`)**
+- `CodespaceManager`: Orchestrates codespace lifecycle
+- `GitHubAPI`: Wrapper around GitHub's REST API
+- Handles creation, monitoring, cleanup, and task execution
+
+**Task Management (`src/tasks/`)**
+- `TaskManager`: Central orchestrator for task lifecycle
+- `TaskQueue`: Priority-based task queuing system
+- `TaskStorage`: Persistent storage for task history and results
+
+**Notification System (`src/notifications/`)**
+- Multi-channel support (Email, Slack, Pushover, Webhooks)
+- Template engine for customizable notifications
+
+**Communication Layer (`src/webhook/`)**
+- Local webhook server for receiving status updates
+- Real-time communication between CLI and remote environments
+
+### Current Limitations
+
+- **No Abstraction Layer**: Tightly coupled to GitHub Codespaces
+- **No Interface Pattern**: Direct dependencies on `GitHubAPI`
+- **Single Backend**: Cannot switch compute providers
+- **Configuration Coupling**: Codespace-specific settings only
+
+## Proposed Architecture
+
+### 1. Compute Provider Abstraction
+
+Create a unified interface for compute backends:
+
+```typescript
+// src/compute/types.ts
+interface ComputeProvider {
+  name: string
+  
+  // Environment lifecycle
+  createEnvironment(options: EnvironmentOptions): Promise<Environment>
+  destroyEnvironment(envId: string): Promise<void>
+  getEnvironmentStatus(envId: string): Promise<EnvironmentStatus>
+  
+  // Task execution
+  executeTask(env: Environment, task: TaskDefinition): Promise<TaskExecution>
+  streamLogs(envId: string, callback: LogCallback): Promise<void>
+  
+  // File operations
+  uploadFiles(envId: string, files: FileMap): Promise<void>
+  downloadResults(envId: string, paths: string[]): Promise<FileMap>
+}
+```
+
+### 2. Provider Implementation Structure
+
+```
+src/compute/
+├── types.ts                    # Core interfaces and types
+├── manager.ts                  # Provider selection and management
+├── providers/
+│   ├── codespace-provider.ts   # Refactored CodespaceManager
+│   └── ec2-provider.ts         # New EC2 implementation
+└── utils/
+    ├── environment.ts          # Common environment utilities
+    └── validation.ts           # Configuration validation
+```
+
+### 3. EC2 Provider Components
+
+**Core Implementation:**
+- **EC2Provider**: Main provider implementation
+- **EC2InstanceManager**: Instance lifecycle management
+- **EC2TaskExecutor**: Docker-based task execution
+- **EC2ConfigValidator**: Configuration validation
+- **AWSCredentialsManager**: Authentication handling
+
+**Instance Management:**
+```typescript
+class EC2InstanceManager {
+  async createInstance(config: EC2Config): Promise<EC2Instance>
+  async terminateInstance(instanceId: string): Promise<void>
+  async setupEnvironment(instance: EC2Instance): Promise<void>
+  async waitForReady(instanceId: string): Promise<void>
+}
+```
+
+## Configuration Extension
+
+### Updated Config Schema
+
+```typescript
+interface ComputeConfig {
+  provider: 'codespace' | 'ec2'
+  
+  codespace?: {
+    defaultMachine: string
+    defaultIdleTimeout: number
+    // ... existing codespace config
+  }
+  
+  ec2?: {
+    region: string
+    instanceType: string
+    ami?: string
+    subnetId?: string
+    securityGroupIds?: string[]
+    keyPair?: string
+    spotInstance?: boolean
+    idleTimeout: number
+    autoTerminate: boolean
+    tags?: Record<string, string>
+  }
+}
+```
+
+### Configuration Examples
+
+```json
+{
+  "compute": {
+    "provider": "ec2",
+    "ec2": {
+      "region": "us-east-1",
+      "instanceType": "t3.medium",
+      "spotInstance": true,
+      "idleTimeout": 60,
+      "autoTerminate": true,
+      "tags": {
+        "Project": "remote-claude",
+        "Environment": "dev"
+      }
+    }
+  }
+}
+```
+
+## CLI Integration
+
+### Enhanced Commands
+
+```bash
+# Provider selection
+rclaude run "Fix the bug" --provider ec2
+rclaude run "Quick fix" --provider codespace
+
+# EC2-specific options
+rclaude run "Long task" --provider ec2 --ec2-instance-type c5.xlarge --ec2-spot
+rclaude run "Memory intensive" --provider ec2 --ec2-instance-type r5.large
+
+# Backward compatibility (defaults to codespace)
+rclaude run "Standard task"
+```
+
+### New EC2 Management Commands
+
+```bash
+rclaude ec2 list-instances        # List active EC2 instances
+rclaude ec2 terminate <id>        # Manually terminate instance
+rclaude ec2 connect <id>          # SSH into instance for debugging
+rclaude ec2 costs [--timeframe]   # View EC2 usage costs
+rclaude config ec2 --region us-west-2  # Configure EC2 settings
+```
+
+## Implementation Plan
+
+### Phase 1: Abstraction Layer (Week 1-2)
+
+**Goals:**
+- Create compute provider interface
+- Refactor existing CodespaceManager into provider pattern
+- Update TaskManager to use compute abstraction
+- Add provider selection logic
+
+**Tasks:**
+1. Define `ComputeProvider` interface in `src/compute/types.ts`
+2. Create `ComputeManager` in `src/compute/manager.ts`
+3. Refactor `CodespaceManager` → `CodespaceProvider`
+4. Update `TaskManager` to use compute abstraction
+5. Add provider selection logic to CLI commands
+6. Update configuration schema
+
+**Deliverables:**
+- Working abstraction layer
+- Existing codespace functionality preserved
+- Provider selection via CLI options
+
+### Phase 2: EC2 Core Implementation (Week 3-4)
+
+**Goals:**
+- Implement basic EC2Provider functionality
+- Add AWS SDK integration
+- Instance creation and termination
+- Basic task execution via SSH
+
+**Tasks:**
+1. Set up AWS SDK integration
+2. Implement `EC2Provider` class
+3. Create `EC2InstanceManager` for lifecycle management
+4. Add AWS credentials handling
+5. Implement basic instance provisioning
+6. Add SSH-based task execution
+7. Implement status monitoring
+
+**Deliverables:**
+- Working EC2 provider
+- Basic instance management
+- Simple task execution
+
+### Phase 3: Advanced Features (Week 5-6)
+
+**Goals:**
+- Docker-based task isolation
+- File upload/download capabilities
+- Cost tracking and optimization
+- Spot instance support
+
+**Tasks:**
+1. Implement Docker-based task execution
+2. Add file upload/download via SCP/SFTP
+3. Implement spot instance support
+4. Add cost tracking and reporting
+5. Create auto-termination logic
+6. Implement instance health monitoring
+7. Add retry logic for spot interruptions
+
+**Deliverables:**
+- Production-ready EC2 provider
+- Cost optimization features
+- Robust error handling
+
+### Phase 4: Integration & Polish (Week 7-8)
+
+**Goals:**
+- Complete CLI integration
+- Configuration migration utilities
+- Comprehensive testing
+- Documentation updates
+
+**Tasks:**
+1. Update all CLI commands with provider support
+2. Create configuration migration utility
+3. Add comprehensive test suite
+4. Update documentation and examples
+5. Performance optimization
+6. Security hardening
+7. Beta testing and feedback incorporation
+
+**Deliverables:**
+- Feature-complete EC2 integration
+- Full backward compatibility
+- Production-ready release
+
+## Technical Considerations
+
+### Security Architecture
+
+**Network Security:**
+- VPC with private subnets for isolation
+- Security groups limiting access to necessary ports only
+- NAT Gateway for outbound internet access
+- No direct internet access to instances
+
+**Access Control:**
+- IAM roles for AWS service access
+- SSH key management and rotation
+- Encrypted EBS volumes (GP3 with encryption at rest)
+- CloudTrail logging for audit trails
+
+**Instance Security:**
+- Minimal AMI with only required software
+- Automatic security updates
+- Firewall rules (iptables/ufw)
+- Regular security scanning
+
+### Cost Optimization Strategy
+
+**Instance Management:**
+- **Spot Instances**: 60-90% cost savings for non-critical tasks
+- **Auto-termination**: Aggressive idle timeout (default 60 minutes)
+- **Right-sizing**: Match instance type to task requirements
+- **Scheduled Shutdown**: Daily/weekly cleanup routines
+
+**Storage Optimization:**
+- **GP3 EBS**: Better price/performance than GP2
+- **Snapshot Lifecycle**: Automated backup and cleanup
+- **Temporary Storage**: Use instance store for ephemeral data
+
+**Monitoring & Alerts:**
+- Cost budgets and alerts
+- Usage tracking per task/user
+- Idle instance detection
+- Monthly cost reports
+
+### Performance & Reliability
+
+**Instance Startup:**
+- Pre-built AMIs with common tools
+- Fast instance types (T3/T3a for general use)
+- Parallel provisioning for multiple tasks
+- Warm instance pools for immediate availability
+
+**Task Execution:**
+- Docker containers for isolation
+- Resource limits and monitoring
+- Parallel task execution
+- Stream processing for large outputs
+
+**Error Handling:**
+- Retry logic for transient failures
+- Graceful spot instance interruption handling
+- Fallback to on-demand instances
+- Comprehensive logging and monitoring
+
+## Migration Strategy
+
+### Backward Compatibility
+
+**Default Behavior:**
+- Provider defaults to 'codespace' for existing users
+- All existing commands work unchanged
+- Configuration files automatically migrated
+- Gradual rollout with feature flags
+
+**User Experience:**
+- Seamless switching between providers
+- Unified status and monitoring commands
+- Consistent notification system across providers
+- Shared task history and results storage
+
+### Rollout Plan
+
+1. **Alpha Release**: Internal testing with EC2 provider
+2. **Beta Release**: Limited user testing with opt-in flag
+3. **Stable Release**: Full feature parity with codespace provider
+4. **Default Migration**: Consider making EC2 default for cost reasons
+
+## Success Metrics
+
+### Performance Metrics
+- Task startup time < 2 minutes (vs 3-5 minutes for codespaces)
+- 99.5% task completion rate
+- < 1% spot instance interruption impact
+
+### Cost Metrics
+- 60-90% cost reduction vs codespaces for long-running tasks
+- < 5% idle instance costs
+- Predictable monthly spending
+
+### User Experience Metrics
+- Seamless provider switching
+- Zero breaking changes for existing users
+- Positive user feedback on flexibility
+
+## Risks and Mitigations
+
+### Technical Risks
+- **AWS Service Limits**: Monitor and request increases proactively
+- **Spot Instance Availability**: Implement multi-AZ fallback
+- **Network Connectivity**: VPC design and testing
+- **Security Vulnerabilities**: Regular security audits
+
+### Business Risks
+- **Cost Overruns**: Implement strict budget controls and alerts
+- **User Confusion**: Clear documentation and migration guides
+- **Maintenance Overhead**: Automated testing and deployment
+
+### Mitigation Strategies
+- Comprehensive testing across AWS regions
+- Gradual rollout with kill switches
+- 24/7 monitoring and alerting
+- Regular security and cost reviews
+
+## Next Steps
+
+1. **Review and Approve Plan**: Stakeholder review of this document
+2. **Set Up Development Environment**: AWS accounts, permissions, tooling
+3. **Begin Phase 1**: Start with abstraction layer implementation
+4. **Weekly Reviews**: Track progress against timeline
+5. **User Feedback**: Engage beta users early and often
+
+## Appendix
+
+### AWS Services Used
+- **EC2**: Compute instances
+- **VPC**: Network isolation
+- **EBS**: Block storage
+- **IAM**: Access control
+- **CloudWatch**: Monitoring and logging
+- **Systems Manager**: Instance management
+- **Cost Explorer**: Cost tracking
+
+### Dependencies
+- **AWS SDK v3**: Latest JavaScript SDK
+- **ssh2**: SSH client for Node.js
+- **node-forge**: SSH key generation
+- **aws-cost-estimates**: Cost calculation utilities
+
+### References
+- [AWS EC2 Pricing](https://aws.amazon.com/ec2/pricing/)
+- [AWS Spot Instances](https://aws.amazon.com/ec2/spot/)
+- [Remote Claude Documentation](../README.md)
+- [GitHub Codespaces vs EC2 Comparison](./codespaces-vs-ec2.md)

@@ -8,6 +8,7 @@ export interface SessionOptions {
   list?: boolean;
   connect?: string;
   cleanup?: boolean;
+  direct?: boolean;
 }
 
 export async function sessionCommand(options: SessionOptions): Promise<void> {
@@ -32,7 +33,7 @@ export async function sessionCommand(options: SessionOptions): Promise<void> {
     if (options.list) {
       await listSessions(codespaceManager);
     } else if (options.connect) {
-      await connectToSession(options.connect);
+      await connectToSession(options.connect, options.direct);
     } else if (options.cleanup) {
       await cleanupSessions(codespaceManager);
     } else {
@@ -77,16 +78,57 @@ async function listSessions(codespaceManager: CodespaceManager): Promise<void> {
   console.log(chalk.blue('  rclaude session --cleanup'), chalk.gray('- Clean up old sessions'));
 }
 
-async function connectToSession(codespaceName: string): Promise<void> {
+async function connectToSession(codespaceName: string, direct?: boolean): Promise<void> {
   console.log(chalk.blue('🔗 Connecting to session:'), codespaceName);
   
-  const { spawn } = require('child_process');
-  const connectProcess = spawn('gh', [
-    'codespace', 'ssh', 
-    '--codespace', codespaceName,
-    '--', 
-    'claude'
-  ], {
+  const { spawn, execSync } = require('child_process');
+  
+  let connectArgs;
+  
+  if (direct) {
+    console.log(chalk.gray('Direct connection mode - bypassing tmux'));
+    connectArgs = [
+      'codespace', 'ssh',
+      '--codespace', codespaceName,
+      '--', '-t',
+      'claude'
+    ];
+  } else {
+    console.log(chalk.gray('Checking for persistent tmux session...'));
+    
+    // Check if tmux session exists
+    let hasTmuxSession = false;
+    try {
+      const checkTmuxCmd = `gh codespace ssh --codespace ${codespaceName} -- "tmux has-session -t claude-work 2>/dev/null && echo 'exists' || echo 'none'"`;
+      const result = execSync(checkTmuxCmd, { encoding: 'utf8' }).trim();
+      hasTmuxSession = result.includes('exists');
+    } catch (error) {
+      // If check fails, assume no tmux session
+      hasTmuxSession = false;
+    }
+    
+    // Choose connection command based on tmux session existence
+    if (hasTmuxSession) {
+      console.log(chalk.green('✓ Found persistent tmux session'));
+      console.log(chalk.gray('💡 Tip: Use Ctrl+B then D to detach and keep session running'));
+      connectArgs = [
+        'codespace', 'ssh',
+        '--codespace', codespaceName,
+        '--', '-t',
+        'tmux', 'attach-session', '-t', 'claude-work'
+      ];
+    } else {
+      console.log(chalk.gray('No tmux session found, connecting directly to Claude'));
+      connectArgs = [
+        'codespace', 'ssh',
+        '--codespace', codespaceName,
+        '--', '-t',
+        'claude'
+      ];
+    }
+  }
+  
+  const connectProcess = spawn('gh', connectArgs, {
     stdio: 'inherit',
   });
   
@@ -146,6 +188,7 @@ export function createSessionCommand(): Command {
     .description('Manage interactive Claude Code sessions')
     .option('-l, --list', 'List active sessions (default)')
     .option('-c, --connect <name>', 'Connect to an existing session')
+    .option('-d, --direct', 'Connect directly to Claude (bypass tmux)')
     .option('--cleanup', 'Clean up old sessions')
     .action(sessionCommand);
 }

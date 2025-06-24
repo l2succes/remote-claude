@@ -2,7 +2,7 @@ import { EventEmitter } from 'events';
 import { Task, TaskStatus, TaskPriority, TaskResult, TaskFilter, TaskUpdate } from './types';
 import { TaskQueue } from './queue';
 import { TaskStorage } from './storage';
-import { CodespaceManager } from '../codespace/manager';
+import { ComputeManager, ComputeConfig, ComputeProviderType } from '../compute';
 import { WebhookServer } from '../webhook/server';
 import { NotificationManager } from '../notifications/manager';
 import { NotificationConfig, NotificationPayload } from '../notifications/types';
@@ -17,6 +17,8 @@ export interface TaskManagerOptions {
   dataDir?: string | undefined;
   autoStart?: boolean | undefined;
   notifications?: NotificationConfig | undefined;
+  compute?: ComputeConfig | undefined;
+  // Legacy options for backward compatibility
   defaultMachine?: string | undefined;
   defaultIdleTimeout?: number | undefined;
 }
@@ -42,7 +44,7 @@ export interface CreateTaskOptions {
 export class TaskManager extends EventEmitter {
   private queue: TaskQueue;
   private storage: TaskStorage;
-  private codespaceManager: CodespaceManager;
+  private computeManager: ComputeManager;
   private webhookServer: WebhookServer;
   private notificationManager?: NotificationManager;
   private isRunning: boolean = false;
@@ -66,12 +68,12 @@ export class TaskManager extends EventEmitter {
       host: options.webhookHost || 'localhost',
     });
 
-    this.codespaceManager = new CodespaceManager({
-      token: options.token,
-      webhookUrl: this.webhookServer.getUrl(),
-      defaultMachine: options.defaultMachine,
-      defaultIdleTimeout: options.defaultIdleTimeout,
-    });
+    // Initialize compute manager with configuration
+    const computeConfig = this.buildComputeConfig(options);
+    this.computeManager = new ComputeManager(computeConfig);
+    
+    // Initialize and register providers
+    this.setupComputeProviders(options);
 
     // Initialize notification manager if config provided
     if (options.notifications && options.notifications.enabled) {
@@ -101,10 +103,7 @@ export class TaskManager extends EventEmitter {
     // Webhook events
     this.webhookServer.on('webhook:received', this.handleWebhookUpdate.bind(this));
 
-    // Codespace events
-    this.codespaceManager.on('codespace:created', this.handleCodespaceCreated.bind(this));
-    this.codespaceManager.on('task:completed', this.handleCodespaceTaskCompleted.bind(this));
-    this.codespaceManager.on('task:failed', this.handleCodespaceTaskFailed.bind(this));
+    // Legacy event handlers will be replaced by compute abstraction
   }
 
   /**
@@ -342,19 +341,32 @@ export class TaskManager extends EventEmitter {
       await this.sendNotification(task, 'task:started');
     }
     
-    // Start actual task execution in codespace
+    // Start actual task execution using compute abstraction
     try {
-      await this.codespaceManager.runTask(task.id, {
-        task: task.command,
-        repository: task.repository,
-        branch: task.branch,
-        timeout: task.timeout,
-        autoCommit: task.autoCommit,
-        pullRequest: task.pullRequest,
-        outputFiles: task.outputFiles,
+      // Create environment
+      const environment = await this.computeManager.createEnvironment({
+        name: `task-${task.id}`,
+        metadata: {
+          repository: task.repository,
+          branch: task.branch,
+        }
       });
+
+      // Execute task
+      const taskDefinition = {
+        id: task.id,
+        command: task.command,
+        ...(task.timeout && { timeout: task.timeout }),
+        environment: {
+          ...(task.autoCommit !== undefined && { AUTO_COMMIT: task.autoCommit.toString() }),
+          ...(task.pullRequest !== undefined && { PULL_REQUEST: task.pullRequest.toString() }),
+        }
+      };
+
+      await this.computeManager.executeTask(environment.id, taskDefinition);
+      
     } catch (error) {
-      console.error(chalk.red('❌ Failed to start codespace task:'), (error as Error).message);
+      console.error(chalk.red('❌ Failed to start compute task:'), (error as Error).message);
       this.queue.complete(task.id, false);
     }
   }
@@ -492,5 +504,78 @@ export class TaskManager extends EventEmitter {
    */
   getNotificationManager(): NotificationManager | undefined {
     return this.notificationManager;
+  }
+
+  /**
+   * Build compute configuration from task manager options
+   */
+  private buildComputeConfig(options: TaskManagerOptions): ComputeConfig {
+    // Use explicit compute config if provided, otherwise build from legacy options
+    if (options.compute) {
+      return options.compute;
+    }
+
+    // Build default config (backward compatibility)
+    return {
+      provider: ComputeProviderType.CODESPACE,
+      codespace: {
+        defaultMachine: options.defaultMachine || 'basicLinux32gb',
+        defaultIdleTimeout: options.defaultIdleTimeout || 30,
+      }
+    };
+  }
+
+  /**
+   * Set up and register compute providers
+   */
+  private async setupComputeProviders(options: TaskManagerOptions): Promise<void> {
+    const { CodespaceProvider } = await import('../compute/providers/codespace-provider');
+    const { EC2Provider } = await import('../compute/providers/ec2-provider');
+    
+    // Always register the Codespace provider for backward compatibility
+    const codespaceProvider = new CodespaceProvider(options.token, {
+      defaultMachine: options.defaultMachine || 'basicLinux32gb',
+      defaultIdleTimeout: options.defaultIdleTimeout || 30,
+    });
+    
+    this.computeManager.registerProvider(codespaceProvider);
+
+    // Register EC2 provider if configured
+    const computeConfig = this.buildComputeConfig(options);
+    if (computeConfig.ec2) {
+      const ec2Provider = new EC2Provider(computeConfig.ec2);
+      this.computeManager.registerProvider(ec2Provider);
+    }
+
+    // Forward compute events to task manager events
+    this.computeManager.on('compute-event', (event) => {
+      this.emit('compute-event', event);
+    });
+
+    // Set up compute manager event handlers for task lifecycle
+    this.computeManager.on('compute-event', async (event) => {
+      switch (event.type) {
+        case 'task.started':
+          // Task started in compute environment
+          break;
+        case 'task.completed':
+          if (event.taskId) {
+            this.queue.complete(event.taskId, true);
+          }
+          break;
+        case 'task.failed':
+          if (event.taskId) {
+            this.queue.complete(event.taskId, false);
+          }
+          break;
+      }
+    });
+  }
+
+  /**
+   * Get the compute manager instance
+   */
+  getComputeManager(): ComputeManager {
+    return this.computeManager;
   }
 }
