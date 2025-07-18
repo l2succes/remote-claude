@@ -1,81 +1,110 @@
 # Remote Claude Documentation
 
-Welcome to the Remote Claude documentation! This directory contains comprehensive guides and references for using and configuring Remote Claude.
+Welcome to the Remote Claude documentation! This directory contains comprehensive guides for using Remote Claude CLI.
 
 ## 📚 Documentation Overview
 
 ### Getting Started
-- **[Setup Guide](./setup-guide.md)** - Complete installation and configuration instructions
-  - Prerequisites and requirements
-  - GitHub token generation with required scopes
-  - Initial configuration
-  - Verification steps
-- **[Persistent Sessions](./persistent-sessions.md)** - Guide to persistent Claude Code sessions
-  - Interactive session management
-  - Background execution workflows
-  - Tmux integration and commands
+- **[Quick Start Guide](./quick-start.md)** - Get up and running in 5 minutes
+  - Installation and setup
+  - Your first task
+  - Common workflows
+  - Best practices
 
-### Usage & Reference
-- **[API Reference](./api-reference.md)** - Complete command and option reference
-  - All commands with examples
-  - Configuration options
+- **[Configuration Guide](./configuration.md)** - Detailed configuration options
+  - Global vs project configuration
+  - Backend selection
   - Environment variables
+  - Advanced settings
 
-### Troubleshooting
-- **[Troubleshooting Guide](./troubleshooting.md)** - Solutions for common issues
-  - Installation problems
-  - Authentication errors
-  - Codespace issues
-  - Performance optimization
+### Core Features
+- **[Task Management](./tasks.md)** - Working with saved tasks
+  - Creating and running tasks
+  - Task organization
+  - Import/export tasks
+  - Task templates
+
+- **[Backend Providers](./backends.md)** - Compute backend details
+  - GitHub Codespaces setup
+  - AWS EC2 configuration
+  - Cost optimization
+  - Performance tuning
 
 ### Advanced Topics
-- **[Advanced Setup](./advanced-setup.md)** - Advanced configuration scenarios
-  - Email and Slack notifications
-  - Team collaboration setup
-  - CI/CD integration
-  - Security best practices
-- **[Codespace Lifecycle](./codespace-lifecycle.md)** - Managing codespace timeouts and costs
-  - Idle timeout configuration
-  - Cost optimization strategies
-  - Keep-alive techniques
-  - Monitoring and cleanup
+- **[Interactive Sessions](./sessions.md)** - Live coding with Claude
+  - Starting sessions
+  - Persistent connections
+  - Tmux integration
+  - Session management
 
-### Architecture & Implementation
-- **[Architecture](./architecture.md)** - System design and architecture
-- **[Setup Codespaces](./setup-codespaces.md)** - GitHub Codespaces configuration
-- **[Notifications](./notifications.md)** - Notification system details
-- **[Implementation Plan](./implementation-plan.md)** - Development roadmap
+- **[Notifications](./notifications.md)** - Setting up notifications
+  - Email configuration
+  - Slack integration
+  - Custom webhooks
+  - Notification events
+
+- **[CI/CD Integration](./ci-cd.md)** - Automation workflows
+  - GitHub Actions
+  - Jenkins integration
+  - GitLab CI
+  - Custom pipelines
+
+### Reference
+- **[Command Reference](./commands.md)** - Complete command documentation
+  - All commands and options
+  - Examples for each command
+  - Exit codes and errors
+
+- **[API Reference](./api.md)** - Programmatic usage
+  - Node.js SDK
+  - REST API endpoints
+  - Webhook format
+
+### Troubleshooting
+- **[Troubleshooting Guide](./troubleshooting.md)** - Common issues and solutions
+  - Installation problems
+  - Authentication errors
+  - Backend issues
+  - Performance optimization
+
+- **[FAQ](./faq.md)** - Frequently asked questions
+  - General questions
+  - Technical details
+  - Best practices
 
 ## 🚀 Quick Links
 
-- [Main README](../README.md) - Project overview and quick start
-- [GitHub Issues](https://github.com/l2succes/remote-claude/issues) - Report bugs or request features
-- [GitHub Discussions](https://github.com/l2succes/remote-claude/discussions) - Community discussions
+- [Main README](../README.md) - Project overview
+- [Quick Start](./quick-start.md) - Get started quickly
+- [GitHub Issues](https://github.com/l2succes/remote-claude/issues) - Report bugs
+- [Discussions](https://github.com/l2succes/remote-claude/discussions) - Community
 
-## 📖 Documentation Roadmap
+## 📖 Documentation Updates
 
-Planned documentation additions:
-- Usage examples and tutorials
-- Integration guides for popular CI/CD platforms
-- Best practices for large-scale deployments
-- API SDK documentation
-- Video tutorials and demos
+This documentation is actively maintained. Recent updates include:
+
+- ✨ New task-based workflow with `rclaude run <task-id>`
+- 🌐 Multi-backend support (Codespaces and EC2)
+- 📁 Project-level configuration
+- 🎯 Improved task management commands
 
 ## 🤝 Contributing to Documentation
 
-We welcome documentation improvements! If you find any errors or have suggestions:
+We welcome documentation improvements! 
+
+### How to Contribute
 
 1. **Small fixes**: Submit a pull request directly
 2. **Large changes**: Open an issue first to discuss
-3. **New guides**: Check with maintainers about scope and placement
+3. **New guides**: Check with maintainers about scope
 
-### Documentation Style Guide
+### Documentation Standards
 
 - Use clear, concise language
 - Include practical examples
-- Add table of contents for long documents
-- Test all code examples before submitting
-- Use proper markdown formatting
+- Test all code samples
+- Add screenshots for complex UI
+- Keep guides focused and actionable
 
 ## 📄 License
 

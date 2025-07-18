@@ -2,6 +2,8 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import { ConfigManager } from '../utils/config';
 import { AuthManager } from '../utils/auth';
+import { createConfigBackendCommand } from './config-backend';
+import { ConfigManagerV2 } from '../utils/config-v2';
 
 export interface GitHubConfigOptions {
   token?: string;
@@ -207,7 +209,15 @@ export function createConfigCommand(): Command {
   const command = new Command('config');
   
   command
-    .description('Manage configuration');
+    .description('Manage configuration')
+    .action(() => {
+      // Show current configuration overview when no subcommand
+      const configV2 = new ConfigManagerV2();
+      configV2.displayConfig();
+    });
+  
+  // Backend subcommand (new)
+  command.addCommand(createConfigBackendCommand());
   
   // GitHub subcommand
   command
