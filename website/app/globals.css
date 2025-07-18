@@ -1,0 +1,153 @@
+@import "tailwindcss";
+
+:root {
+  --font-inter: 'Inter', system-ui, sans-serif;
+  --font-jetbrains-mono: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+@theme inline {
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-jetbrains-mono);
+}
+
+/* Custom scrollbar styles */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgb(17 24 39);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgb(55 65 81);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(75 85 99);
+}
+
+/* Selection colors */
+::selection {
+  background: rgb(59 130 246 / 0.5);
+  color: white;
+}
+
+/* Custom gradient backgrounds */
+.gradient-radial-blue {
+  background: radial-gradient(circle at center, rgb(59 130 246 / 0.1) 0%, transparent 70%);
+}
+
+.gradient-radial-purple {
+  background: radial-gradient(circle at center, rgb(168 85 247 / 0.1) 0%, transparent 70%);
+}
+
+/* Terminal custom styles */
+.terminal-gradient {
+  background: linear-gradient(135deg, #0a0a0a 0%, #18181b 100%);
+}
+
+/* Code block styles */
+pre {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+code {
+  font-family: var(--font-jetbrains-mono);
+}
+
+/* Syntax highlighting - GitHub Dark theme */
+.hljs {
+  color: #c9d1d9;
+  background: #0d1117;
+}
+
+.hljs-doctag,
+.hljs-keyword,
+.hljs-meta .hljs-keyword,
+.hljs-template-tag,
+.hljs-template-variable,
+.hljs-type,
+.hljs-variable.language_ {
+  color: #ff7b72;
+}
+
+.hljs-title,
+.hljs-title.class_,
+.hljs-title.class_.inherited__,
+.hljs-title.function_ {
+  color: #d2a8ff;
+}
+
+.hljs-attr,
+.hljs-attribute,
+.hljs-literal,
+.hljs-meta,
+.hljs-number,
+.hljs-operator,
+.hljs-variable,
+.hljs-selector-attr,
+.hljs-selector-class,
+.hljs-selector-id {
+  color: #79c0ff;
+}
+
+.hljs-regexp,
+.hljs-string,
+.hljs-meta .hljs-string {
+  color: #a5d6ff;
+}
+
+.hljs-built_in,
+.hljs-symbol {
+  color: #ffa657;
+}
+
+.hljs-comment,
+.hljs-code,
+.hljs-formula {
+  color: #8b949e;
+}
+
+.hljs-name,
+.hljs-quote,
+.hljs-selector-tag,
+.hljs-selector-pseudo {
+  color: #7ee787;
+}
+
+.hljs-subst {
+  color: #c9d1d9;
+}
+
+.hljs-section {
+  color: #1f6feb;
+  font-weight: bold;
+}
+
+.hljs-bullet {
+  color: #f2cc60;
+}
+
+.hljs-emphasis {
+  color: #c9d1d9;
+  font-style: italic;
+}
+
+.hljs-strong {
+  color: #c9d1d9;
+  font-weight: bold;
+}
+
+.hljs-addition {
+  color: #aff5b4;
+  background-color: #033a16;
+}
+
+.hljs-deletion {
+  color: #ffdcd7;
+  background-color: #67060c;
+}

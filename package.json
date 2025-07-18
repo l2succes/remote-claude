@@ -32,17 +32,27 @@
   "dependencies": {
     "@aws-sdk/client-ec2": "^3.835.0",
     "@aws-sdk/client-ssm": "^3.835.0",
+    "@mdx-js/loader": "^3.1.0",
+    "@mdx-js/react": "^3.1.0",
+    "@next/mdx": "^15.4.1",
     "axios": "^1.6.2",
     "chalk": "^4.1.2",
     "commander": "^11.1.0",
     "cosmiconfig": "^8.3.6",
     "express": "^4.21.2",
+    "gray-matter": "^4.0.3",
     "handlebars": "^4.7.8",
+    "highlight.js": "^11.11.1",
     "inquirer": "^8.2.6",
     "keytar": "^7.9.0",
+    "next-mdx-remote": "^5.0.0",
     "node-forge": "^1.3.1",
     "nodemailer": "^6.10.1",
     "ora": "^5.4.1",
+    "rehype-autolink-headings": "^7.1.0",
+    "rehype-highlight": "^7.0.2",
+    "rehype-slug": "^6.0.0",
+    "remark-gfm": "^4.0.1",
     "ssh2": "^1.16.0",
     "uuid": "^11.1.0",
     "ws": "^8.14.2"
@@ -79,5 +89,6 @@
   "bugs": {
     "url": "https://github.com/l2succes/remote-claude/issues"
   },
-  "homepage": "https://github.com/l2succes/remote-claude#readme"
+  "homepage": "https://github.com/l2succes/remote-claude#readme",
+  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
 }

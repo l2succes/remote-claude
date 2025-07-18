@@ -1,0 +1,137 @@
+---
+title: Quick Start
+description: Get started with Remote Claude in 5 minutes
+section: Getting Started
+order: 2
+---
+
+# Quick Start Guide
+
+Get up and running with Remote Claude in just 5 minutes!
+
+## Prerequisites
+
+- Node.js 18+ installed
+- Either a GitHub account or AWS account
+- A project repository to work with
+
+## Installation
+
+Install Remote Claude globally using npm:
+
+```bash
+npm install -g @rclaude/cli
+```
+
+Verify the installation:
+
+```bash
+rclaude --version
+```
+
+## Choose Your Backend
+
+Remote Claude supports two backends. Choose the one that fits your needs:
+
+### Option 1: GitHub Codespaces (Recommended for beginners)
+
+1. Configure Codespaces:
+   ```bash
+   rclaude config backend
+   # Select "GitHub Codespaces"
+   # Follow the prompts to authenticate
+   ```
+
+2. Run your first task:
+   ```bash
+   rclaude run "add a README to my project"
+   ```
+
+### Option 2: AWS EC2
+
+1. Set up AWS credentials:
+   ```bash
+   export AWS_ACCESS_KEY_ID=your_key
+   export AWS_SECRET_ACCESS_KEY=your_secret
+   ```
+
+2. Configure EC2:
+   ```bash
+   rclaude config backend
+   # Select "AWS EC2"
+   # Choose your region and instance type
+   ```
+
+3. Run your first task:
+   ```bash
+   rclaude run "refactor authentication system"
+   ```
+
+## Your First Task
+
+Let's create and run a simple task:
+
+```bash
+# Run a task (creates it if it doesn't exist)
+rclaude run add-tests
+
+# You'll be prompted to:
+# 1. Describe the task
+# 2. Specify the repository
+# 3. Choose options (or use defaults)
+```
+
+## Working with Tasks
+
+### List Your Tasks
+```bash
+rclaude tasks
+```
+
+### Run an Existing Task
+```bash
+rclaude run <task-id>
+```
+
+### Project-Specific Configuration
+
+Initialize a project configuration:
+
+```bash
+cd your-project
+rclaude init
+```
+
+This creates a `.rclaude.json` file with project-specific settings.
+
+## Common Workflows
+
+### 1. Code Review and Refactoring
+```bash
+rclaude run review-pr --branch feat/new-feature
+```
+
+### 2. Test Generation
+```bash
+rclaude run generate-tests --path src/
+```
+
+### 3. Documentation Updates
+```bash
+rclaude run update-docs --focus api
+```
+
+## Tips
+
+- **Save Time**: Reuse tasks across similar projects
+- **Stay Organized**: Use descriptive task IDs like `fix-auth-bug` or `add-search-feature`
+- **Use Defaults**: Set up project configs to avoid repetitive options
+- **Monitor Progress**: Check task status with `rclaude status`
+
+## Next Steps
+
+- Learn about [Task Management](/docs/tasks)
+- Explore [Configuration Options](/docs/configuration)
+- Read backend-specific guides:
+  - [GitHub Codespaces Guide](/docs/github-codespaces)
+  - [AWS EC2 Guide](/docs/aws-ec2)
