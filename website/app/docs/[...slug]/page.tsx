@@ -47,16 +47,14 @@ export default async function DocPage({
   })
   
   return (
-    <>
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold mb-2">{doc.meta.title}</h1>
+    <article className="prose prose-invert prose-lg max-w-none">
+      <div className="not-prose mb-8 pb-8 border-b border-gray-800">
+        <h1 className="text-4xl font-bold mb-3 text-gray-100">{doc.meta.title}</h1>
         {doc.meta.description && (
           <p className="text-xl text-gray-400">{doc.meta.description}</p>
         )}
       </div>
-      <div className="prose-headings:scroll-mt-20">
-        <MDXContent source={mdxSource} />
-      </div>
-    </>
+      <MDXContent source={mdxSource} />
+    </article>
   )
 }

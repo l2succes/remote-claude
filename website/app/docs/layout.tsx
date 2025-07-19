@@ -105,10 +105,8 @@ export default async function DocsLayout({
           </aside>
           
           {/* Main content */}
-          <main className="min-w-0">
-            <article className="prose prose-invert prose-lg max-w-none">
-              {children}
-            </article>
+          <main className="min-w-0 max-w-4xl">
+            {children}
           </main>
         </div>
       </div>

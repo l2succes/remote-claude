@@ -1,4 +1,5 @@
 import Terminal from '@/components/Terminal'
+import AsciiLogo from '@/components/AsciiLogo'
 import Link from 'next/link'
 import { FaGithub, FaBook, FaRocket, FaCloud, FaServer, FaTasks, FaBell } from 'react-icons/fa'
 
@@ -36,9 +37,9 @@ export default function Home() {
       <section className="relative py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-12">
-            <h1 className="text-5xl md:text-7xl font-bold text-white mb-4">
-              Remote Claude
-            </h1>
+            <div className="flex justify-center mb-8">
+              <AsciiLogo />
+            </div>
             <p className="text-xl md:text-2xl text-gray-300 mb-8">
               AI Development in the Cloud
             </p>
