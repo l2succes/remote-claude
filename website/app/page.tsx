@@ -1,7 +1,15 @@
-import Terminal from '@/components/Terminal'
-import AsciiLogo from '@/components/AsciiLogo'
-import Link from 'next/link'
-import { FaGithub, FaBook, FaRocket, FaCloud, FaServer, FaTasks, FaBell } from 'react-icons/fa'
+import Terminal from "@/components/Terminal";
+import AsciiLogo from "@/components/AsciiLogo";
+import Link from "next/link";
+import {
+  FaGithub,
+  FaBook,
+  FaRocket,
+  FaCloud,
+  FaServer,
+  FaTasks,
+  FaBell,
+} from "react-icons/fa";
 
 export default function Home() {
   return (
@@ -11,7 +19,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
-              <h1 className="text-xl font-bold text-white">Remote Claude</h1>
+              <h1 className="text-xl font-bold text-white">Claude Cloud</h1>
             </div>
             <div className="flex items-center space-x-4">
               <Link
@@ -44,8 +52,9 @@ export default function Home() {
               AI Development in the Cloud
             </p>
             <p className="text-lg text-gray-400 max-w-3xl mx-auto mb-12">
-              Run Claude Code tasks remotely on GitHub Codespaces or AWS EC2. 
-              Save and reuse tasks, manage multiple projects, and get notified when tasks complete.
+              Run Claude Code tasks remotely on GitHub Codespaces or AWS EC2.
+              Save and reuse tasks, manage multiple projects, and get notified
+              when tasks complete.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link
@@ -74,28 +83,37 @@ export default function Home() {
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-20">
             <div className="bg-gray-800/50 backdrop-blur p-6 rounded-lg border border-gray-700/50 hover:border-gray-600 transition-colors">
               <FaTasks className="text-3xl text-primary-500 mb-4" />
-              <h3 className="text-xl font-semibold text-white mb-2">Task-Based Workflow</h3>
+              <h3 className="text-xl font-semibold text-white mb-2">
+                Task-Based Workflow
+              </h3>
               <p className="text-gray-400">
-                Save and reuse common tasks. No need to remember complex commands.
+                Save and reuse common tasks. No need to remember complex
+                commands.
               </p>
             </div>
             <div className="bg-gray-800/50 backdrop-blur p-6 rounded-lg border border-gray-700/50 hover:border-gray-600 transition-colors">
               <FaCloud className="text-3xl text-accent-500 mb-4" />
-              <h3 className="text-xl font-semibold text-white mb-2">Multi-Cloud Support</h3>
+              <h3 className="text-xl font-semibold text-white mb-2">
+                Multi-Cloud Support
+              </h3>
               <p className="text-gray-400">
                 Choose between GitHub Codespaces or AWS EC2 based on your needs.
               </p>
             </div>
             <div className="bg-gray-800/50 backdrop-blur p-6 rounded-lg border border-gray-700/50 hover:border-gray-600 transition-colors">
               <FaServer className="text-3xl text-purple-500 mb-4" />
-              <h3 className="text-xl font-semibold text-white mb-2">Auto-Scaling</h3>
+              <h3 className="text-xl font-semibold text-white mb-2">
+                Auto-Scaling
+              </h3>
               <p className="text-gray-400">
                 Automatically provision and terminate cloud resources as needed.
               </p>
             </div>
             <div className="bg-gray-800/50 backdrop-blur p-6 rounded-lg border border-gray-700/50 hover:border-gray-600 transition-colors">
               <FaBell className="text-3xl text-amber-500 mb-4" />
-              <h3 className="text-xl font-semibold text-white mb-2">Smart Notifications</h3>
+              <h3 className="text-xl font-semibold text-white mb-2">
+                Smart Notifications
+              </h3>
               <p className="text-gray-400">
                 Get notified via email, Slack, or webhooks when tasks complete.
               </p>
@@ -104,22 +122,30 @@ export default function Home() {
 
           {/* Quick Start */}
           <div className="bg-gray-800 rounded-lg p-8 mb-20">
-            <h2 className="text-3xl font-bold text-white mb-6 text-center">Quick Start</h2>
+            <h2 className="text-3xl font-bold text-white mb-6 text-center">
+              Quick Start
+            </h2>
             <div className="grid md:grid-cols-3 gap-8">
               <div>
                 <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-                  <span className="text-primary-500 font-semibold">1.</span> Install
+                  <span className="text-primary-500 font-semibold">1.</span>{" "}
+                  Install
                 </h3>
                 <pre className="bg-gray-900 p-4 rounded-md overflow-x-auto">
-                  <code className="text-gray-300">npm install -g remote-claude</code>
+                  <code className="text-gray-300">
+                    npm install -g remote-claude
+                  </code>
                 </pre>
               </div>
               <div>
                 <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-                  <span className="text-primary-500 font-semibold">2.</span> Configure
+                  <span className="text-primary-500 font-semibold">2.</span>{" "}
+                  Configure
                 </h3>
                 <pre className="bg-gray-900 p-4 rounded-md overflow-x-auto">
-                  <code className="text-gray-300">rclaude config github --token YOUR_TOKEN</code>
+                  <code className="text-gray-300">
+                    rclaude config github --token YOUR_TOKEN
+                  </code>
                 </pre>
               </div>
               <div>
@@ -135,7 +161,9 @@ export default function Home() {
 
           {/* Backend Comparison */}
           <div className="mb-20">
-            <h2 className="text-3xl font-bold text-white mb-8 text-center">Choose Your Backend</h2>
+            <h2 className="text-3xl font-bold text-white mb-8 text-center">
+              Choose Your Backend
+            </h2>
             <div className="grid md:grid-cols-2 gap-8">
               <div className="bg-gray-800 rounded-lg p-6">
                 <h3 className="text-2xl font-semibold text-white mb-4 flex items-center gap-2">
@@ -196,13 +224,19 @@ export default function Home() {
               © 2024 Remote Claude. MIT License.
             </p>
             <div className="flex space-x-6 mt-4 md:mt-0">
-              <a href="https://github.com/l2succes/remote-claude" className="text-gray-400 hover:text-white">
+              <a
+                href="https://github.com/l2succes/remote-claude"
+                className="text-gray-400 hover:text-white"
+              >
                 GitHub
               </a>
               <Link href="/docs" className="text-gray-400 hover:text-white">
                 Documentation
               </Link>
-              <a href="https://github.com/l2succes/remote-claude/issues" className="text-gray-400 hover:text-white">
+              <a
+                href="https://github.com/l2succes/remote-claude/issues"
+                className="text-gray-400 hover:text-white"
+              >
                 Issues
               </a>
             </div>
@@ -210,5 +244,5 @@ export default function Home() {
         </div>
       </footer>
     </main>
-  )
+  );
 }

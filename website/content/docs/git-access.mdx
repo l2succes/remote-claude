@@ -1,0 +1,171 @@
+---
+title: Secure Git Access for EC2 Instances
+description: This guide covers safe methods to give Remote Claude EC2 instances access to private Git repositories.
+section: Advanced
+order: 2
+---
+
+
+This guide covers safe methods to give Remote Claude EC2 instances access to private Git repositories.
+
+## 🔐 Security Overview
+
+**Never** copy your personal SSH keys or GitHub tokens to EC2 instances. Use these secure methods instead:
+
+## Method 1: Deploy Keys (Recommended for Automation)
+
+Deploy keys provide read-only access to specific repositories:
+
+### Setup:
+```bash
+# 1. Generate a deploy key
+ssh-keygen -t ed25519 -f ~/.ssh/deploy-key-myrepo -C "remote-claude-deploy"
+
+# 2. Add public key to GitHub
+# Go to Repository Settings > Deploy Keys > Add deploy key
+# Paste contents of ~/.ssh/deploy-key-myrepo.pub
+
+# 3. Configure instance
+node setup-git-access.js i-xxx --deploy-key ~/.ssh/deploy-key-myrepo --repos owner/myrepo
+```
+
+### Advantages:
+- ✅ Repository-specific access
+- ✅ Read-only by default
+- ✅ No personal credentials exposed
+- ✅ Works for automated tasks
+- ✅ Easy to revoke
+
+## Method 2: SSH Agent Forwarding (Recommended for Interactive)
+
+Forwards your local SSH keys without copying them:
+
+```bash
+# Connect with agent forwarding
+rclaude ec2 connect i-xxx -A
+
+# Now you can use Git normally
+git clone git@github.com:owner/private-repo.git
+git push origin main
+```
+
+### Advantages:
+- ✅ No keys stored on instance
+- ✅ Uses your existing permissions
+- ✅ Full read/write access
+- ✅ Automatic cleanup when session ends
+
+### Limitations:
+- ❌ Only works during active SSH sessions
+- ❌ Not suitable for automated tasks
+
+## Method 3: Fine-Grained Personal Access Tokens
+
+Create minimal-permission tokens for specific repositories:
+
+```bash
+# 1. Create token at GitHub > Settings > Developer settings > Personal access tokens (fine-grained)
+# 2. Grant minimal permissions to specific repositories
+
+# 3. Configure Git on instance
+rclaude ec2 connect i-xxx -c 'git config --global credential.helper store'
+rclaude ec2 connect i-xxx -c 'echo "https://username:TOKEN@github.com" > ~/.git-credentials'
+```
+
+### Use Cases:
+- Public repositories with some private dependencies
+- CI/CD scenarios where deploy keys aren't suitable
+- Temporary access needs
+
+## 🚀 Quick Start Examples
+
+### Example 1: Deploy Key Setup
+```bash
+# Generate deploy key
+ssh-keygen -t ed25519 -f ~/.ssh/deploy-remote-claude -C "remote-claude"
+
+# Add public key to GitHub repo settings
+cat ~/.ssh/deploy-remote-claude.pub
+
+# Configure instance
+node setup-git-access.js i-01234567 \
+  --deploy-key ~/.ssh/deploy-remote-claude \
+  --git-name "Remote Claude" \
+  --git-email "remote-claude@example.com" \
+  --repos "myorg/private-repo,myorg/another-repo"
+```
+
+### Example 2: Interactive Session with Git
+```bash
+# Start interactive session with agent forwarding
+rclaude run "Work on my project" --interactive --provider ec2
+
+# In the EC2 session:
+git clone git@github.com:myorg/private-repo.git
+cd private-repo
+# Make changes...
+git add .
+git commit -m "Updates from Remote Claude"
+git push
+```
+
+### Example 3: Automated Task with Deploy Key
+```bash
+# Set up the instance
+node setup-git-access.js i-01234567 \
+  --deploy-key ~/.ssh/deploy-key \
+  --repos "myorg/project"
+
+# Run automated task
+rclaude run "cd project && npm install && npm test" --provider ec2
+```
+
+## 🔧 Built-in Commands
+
+```bash
+# Connect with SSH agent forwarding
+rclaude ec2 connect i-xxx -A
+
+# Run setup script
+node setup-git-access.js <instance-id> [options]
+
+# Check Git status on instance  
+rclaude ec2 connect i-xxx -c "git status"
+```
+
+## 🛡️ Security Best Practices
+
+1. **Use deploy keys for automation** - Repository-specific, read-only access
+2. **Use SSH agent forwarding for interactive work** - No credentials stored
+3. **Rotate keys regularly** - Especially for long-running instances
+4. **Monitor access** - Remove unused deploy keys from repositories
+5. **Use minimal permissions** - Only grant access to required repositories
+6. **Clean up** - Remove credentials when terminating instances
+
+## 🔍 Troubleshooting
+
+### Deploy Key Issues:
+```bash
+# Test deploy key access
+ssh -i ~/.ssh/deploy-key -T git@github.com
+
+# Check instance SSH config
+rclaude ec2 connect i-xxx -c "cat ~/.ssh/config"
+```
+
+### SSH Agent Forwarding Issues:
+```bash
+# Verify agent is running locally
+ssh-add -l
+
+# Test forwarding
+rclaude ec2 connect i-xxx -A -c "ssh-add -l"
+```
+
+### Permission Errors:
+```bash
+# Fix SSH key permissions
+rclaude ec2 connect i-xxx -c "chmod 600 ~/.ssh/deploy_key ~/.ssh/config"
+```
+
+This approach ensures secure, auditable access to private repositories while maintaining the principle of least privilege.

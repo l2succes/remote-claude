@@ -1,69 +1,117 @@
 ---
-title: Overview
-description: Introduction to Remote Claude - Run Claude Code tasks remotely
+title: Remote Claude Documentation
+description: Welcome to the Remote Claude documentation! This directory contains comprehensive guides for using Remote Claude CLI.
 section: Getting Started
 order: 1
 ---
 
-# Remote Claude
 
-Remote Claude is a powerful CLI tool that enables you to run Claude Code tasks remotely on GitHub Codespaces or AWS EC2 instances. It's designed to make AI-powered development workflows more efficient and scalable.
+Welcome to the Remote Claude documentation! This directory contains comprehensive guides for using Remote Claude CLI.
 
-## Why Remote Claude?
+## 📚 Documentation Overview
 
-- **Save and Reuse Tasks**: Define tasks once, run them anywhere
-- **Remote Execution**: Leverage cloud compute for resource-intensive tasks
-- **Multiple Backends**: Choose between GitHub Codespaces and AWS EC2
-- **Project Management**: Organize tasks by project with local configuration
-- **Real-time Notifications**: Get notified when long-running tasks complete
+### Getting Started
+- **[Quick Start Guide](/docs/quick-start)** - Get up and running in 5 minutes
+  - Installation and setup
+  - Your first task
+  - Common workflows
+  - Best practices
 
-## Key Features
+- **[Configuration Guide](/docs/configuration)** - Detailed configuration options
+  - Global vs project configuration
+  - Backend selection
+  - Environment variables
+  - Advanced settings
 
-### Task-Based Workflow
+### Core Features
+- **[Task Management](/docs/tasks)** - Working with saved tasks
+  - Creating and running tasks
+  - Task organization
+  - Import/export tasks
+  - Task templates
 
-```bash
-# Run a saved task
-rclaude run refactor-auth
+- **[Backend Providers](/docs/github-codespaces)** - Compute backend details
+  - GitHub Codespaces setup
+  - AWS EC2 configuration
+  - Cost optimization
+  - Performance tuning
 
-# Create a new task on the fly
-rclaude run implement-search
-```
+### Advanced Topics
+- **[Interactive Sessions](/docs/persistent-sessions)** - Live coding with Claude
+  - Starting sessions
+  - Persistent connections
+  - Tmux integration
+  - Session management
 
-### Multi-Backend Support
+- **[Notifications](/docs/notifications)** - Setting up notifications
+  - Email configuration
+  - Slack integration
+  - Custom webhooks
+  - Notification events
 
-- **GitHub Codespaces**: Perfect for quick tasks and existing GitHub projects
-- **AWS EC2**: Ideal for long-running tasks and custom environments
+- **[CI/CD Integration](/docs/advanced-setup)** - Automation workflows
+  - GitHub Actions
+  - Jenkins integration
+  - GitLab CI
+  - Custom pipelines
 
-### Smart Configuration
+### Reference
+- **[Command Reference](/docs/api-reference)** - Complete command documentation
+  - All commands and options
+  - Examples for each command
+  - Exit codes and errors
 
-Remote Claude uses a hierarchical configuration system:
+- **[API Reference](/docs/api-reference)** - Programmatic usage
+  - Node.js SDK
+  - REST API endpoints
+  - Webhook format
 
-1. CLI flags (highest priority)
-2. Task-specific defaults
-3. Project configuration (`.rclaude.json`)
-4. Global configuration (`~/.rclauderc`)
+### Troubleshooting
+- **[Troubleshooting Guide](/docs/troubleshooting)** - Common issues and solutions
+  - Installation problems
+  - Authentication errors
+  - Backend issues
+  - Performance optimization
 
-## Getting Started
+- **[FAQ](/docs/troubleshooting)** - Frequently asked questions
+  - General questions
+  - Technical details
+  - Best practices
 
-1. Install Remote Claude:
-   ```bash
-   npm install -g @rclaude/cli
-   ```
+## 🚀 Quick Links
 
-2. Configure your preferred backend:
-   ```bash
-   rclaude config backend
-   ```
+- [Main README](../README.md) - Project overview
+- [Quick Start](/docs/quick-start) - Get started quickly
+- [GitHub Issues](https://github.com/l2succes/remote-claude/issues) - Report bugs
+- [Discussions](https://github.com/l2succes/remote-claude/discussions) - Community
 
-3. Run your first task:
-   ```bash
-   rclaude run "add dark mode to my app"
-   ```
+## 📖 Documentation Updates
 
-## Next Steps
+This documentation is actively maintained. Recent updates include:
 
-- [Quick Start Guide](/docs/quick-start) - Get up and running in 5 minutes
-- [Configuration](/docs/configuration) - Learn about configuration options
-- [Task Management](/docs/tasks) - Master the task-based workflow
-- [GitHub Codespaces](/docs/github-codespaces) - Set up Codespaces backend
-- [AWS EC2](/docs/aws-ec2) - Configure EC2 compute provider
+- ✨ New task-based workflow with `rclaude run <task-id>`
+- 🌐 Multi-backend support (Codespaces and EC2)
+- 📁 Project-level configuration
+- 🎯 Improved task management commands
+
+## 🤝 Contributing to Documentation
+
+We welcome documentation improvements! 
+
+### How to Contribute
+
+1. **Small fixes**: Submit a pull request directly
+2. **Large changes**: Open an issue first to discuss
+3. **New guides**: Check with maintainers about scope
+
+### Documentation Standards
+
+- Use clear, concise language
+- Include practical examples
+- Test all code samples
+- Add screenshots for complex UI
+- Keep guides focused and actionable
+
+## 📄 License
+
+This documentation is part of the Remote Claude project and is licensed under the [MIT License](../LICENSE).

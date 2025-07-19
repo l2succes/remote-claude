@@ -15,7 +15,7 @@ export async function generateMetadata({
 }: {
   params: { slug: string[] }
 }) {
-  const slug = params.slug
+  const slug = params.slug || ['overview']
   const doc = await getDocBySlug(slug)
   
   if (!doc) {
@@ -35,7 +35,7 @@ export default async function DocPage({
 }: {
   params: { slug: string[] }
 }) {
-  const slug = params.slug
+  const slug = params.slug || ['overview']
   const doc = await getDocBySlug(slug)
   
   if (!doc) {

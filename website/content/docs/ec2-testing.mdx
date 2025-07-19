@@ -1,0 +1,455 @@
+---
+title: EC2 Provider End-to-End Testing Guide
+description: This guide walks through testing the Remote Claude EC2 provider with real AWS resources.
+section: Backends
+order: 4
+---
+
+
+This guide walks through testing the Remote Claude EC2 provider with real AWS resources.
+
+## Prerequisites
+
+### 1. AWS Account Setup
+
+**Required AWS Services:**
+- EC2 (Elastic Compute Cloud)
+- VPC (Virtual Private Cloud) 
+- IAM (Identity and Access Management)
+
+**Cost Estimate:**
+- Testing: ~$2-5 for a few hours of testing
+- t3.micro instances: $0.0104/hour
+- t3.medium instances: $0.0416/hour
+- Network egress: minimal for testing
+
+### 2. AWS Credentials Configuration
+
+Choose one of these methods:
+
+#### Method A: AWS CLI (Recommended)
+```bash
+# Install AWS CLI if not already installed
+curl "https://awscli.amazonaws.com/AWSCLIV2.pkg" -o "AWSCLIV2.pkg"
+sudo installer -pkg AWSCLIV2.pkg -target /
+
+# Configure credentials
+aws configure
+# Enter: Access Key ID, Secret Access Key, Default region (e.g., us-east-1), Default output format (json)
+```
+
+#### Method B: Environment Variables
+```bash
+export AWS_ACCESS_KEY_ID="your-access-key"
+export AWS_SECRET_ACCESS_KEY="your-secret-key"
+export AWS_DEFAULT_REGION="us-east-1"
+```
+
+#### Method C: IAM Role (for EC2 instances)
+If running on an EC2 instance, attach an IAM role with the required permissions.
+
+### 3. Required IAM Permissions
+
+Create an IAM policy with these permissions:
+
+```json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "ec2:RunInstances",
+                "ec2:TerminateInstances",
+                "ec2:DescribeInstances",
+                "ec2:DescribeImages",
+                "ec2:DescribeKeyPairs",
+                "ec2:DescribeSecurityGroups",
+                "ec2:DescribeSubnets",
+                "ec2:DescribeVpcs",
+                "ec2:CreateTags",
+                "ec2:DescribeTags",
+                "ec2:DescribeInstanceAttribute",
+                "ec2:ModifyInstanceAttribute"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "ssm:SendCommand",
+                "ssm:GetCommandInvocation",
+                "ssm:DescribeInstanceInformation"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+```
+
+### 4. SSH Key Pair Setup
+
+Create an EC2 key pair for SSH access:
+
+```bash
+# Create key pair via AWS CLI
+aws ec2 create-key-pair --key-name remote-claude-test --query 'KeyMaterial' --output text > ~/.ssh/remote-claude-test.pem
+chmod 400 ~/.ssh/remote-claude-test.pem
+
+# Or use existing key pair
+ls ~/.ssh/*.pem
+```
+
+### 5. VPC and Security Group Setup
+
+#### Option A: Use Default VPC (Simplest)
+Most AWS accounts have a default VPC that will work for testing.
+
+#### Option B: Create Custom VPC (Recommended for Production)
+```bash
+# Create VPC
+VPC_ID=$(aws ec2 create-vpc --cidr-block 10.0.0.0/16 --query 'Vpc.VpcId' --output text)
+aws ec2 create-tags --resources $VPC_ID --tags Key=Name,Value=remote-claude-vpc
+
+# Create subnet
+SUBNET_ID=$(aws ec2 create-subnet --vpc-id $VPC_ID --cidr-block 10.0.1.0/24 --query 'Subnet.SubnetId' --output text)
+aws ec2 create-tags --resources $SUBNET_ID --tags Key=Name,Value=remote-claude-subnet
+
+# Create internet gateway
+IGW_ID=$(aws ec2 create-internet-gateway --query 'InternetGateway.InternetGatewayId' --output text)
+aws ec2 attach-internet-gateway --vpc-id $VPC_ID --internet-gateway-id $IGW_ID
+
+# Create route table
+ROUTE_TABLE_ID=$(aws ec2 create-route-table --vpc-id $VPC_ID --query 'RouteTable.RouteTableId' --output text)
+aws ec2 create-route --route-table-id $ROUTE_TABLE_ID --destination-cidr-block 0.0.0.0/0 --gateway-id $IGW_ID
+aws ec2 associate-route-table --subnet-id $SUBNET_ID --route-table-id $ROUTE_TABLE_ID
+
+# Enable auto-assign public IP
+aws ec2 modify-subnet-attribute --subnet-id $SUBNET_ID --map-public-ip-on-launch
+```
+
+#### Create Security Group
+```bash
+# Create security group
+SG_ID=$(aws ec2 create-security-group --group-name remote-claude-sg --description "Remote Claude security group" --vpc-id $VPC_ID --query 'GroupId' --output text)
+
+# Allow SSH access from your IP
+MY_IP=$(curl -s http://checkip.amazonaws.com/)
+aws ec2 authorize-security-group-ingress --group-id $SG_ID --protocol tcp --port 22 --cidr $MY_IP/32
+
+# Allow HTTP/HTTPS for package downloads
+aws ec2 authorize-security-group-ingress --group-id $SG_ID --protocol tcp --port 80 --cidr 0.0.0.0/0
+aws ec2 authorize-security-group-ingress --group-id $SG_ID --protocol tcp --port 443 --cidr 0.0.0.0/0
+```
+
+## Testing Plan
+
+### Phase 1: Basic Functionality Tests
+
+#### Test 1: Provider Registration and Configuration
+```bash
+# Build the project
+npm run build
+
+# Test basic configuration validation
+node -e "
+const { EC2Provider } = require('./dist/compute');
+const config = {
+  region: 'us-east-1',
+  instanceType: 't3.micro',
+  keyPair: 'remote-claude-test',
+  idleTimeout: 30,
+  autoTerminate: true
+};
+const provider = new EC2Provider(config);
+console.log('Provider created:', provider.name);
+console.log('Capabilities:', provider.getCapabilities());
+"
+```
+
+#### Test 2: Instance Creation and Management
+```bash
+# Test instance lifecycle
+node -e "
+const { EC2Provider } = require('./dist/compute');
+async function test() {
+  const provider = new EC2Provider({
+    region: 'us-east-1',
+    instanceType: 't3.micro',
+    keyPair: 'remote-claude-test',
+    securityGroupIds: ['$SG_ID'], // Replace with your security group
+    subnetId: '$SUBNET_ID', // Replace with your subnet
+    idleTimeout: 30,
+    autoTerminate: true,
+    tags: { TestRun: 'ec2-provider-test' }
+  });
+
+  try {
+    console.log('Creating environment...');
+    const env = await provider.createEnvironment({
+      name: 'test-env-' + Date.now()
+    });
+    console.log('Environment created:', env.id);
+
+    console.log('Checking status...');
+    const status = await provider.getEnvironmentStatus(env.id);
+    console.log('Status:', status);
+
+    console.log('Listing environments...');
+    const envs = await provider.listEnvironments();
+    console.log('Found environments:', envs.length);
+
+    // Wait a bit then cleanup
+    setTimeout(async () => {
+      console.log('Cleaning up...');
+      await provider.destroyEnvironment(env.id);
+      console.log('Environment destroyed');
+    }, 60000); // Wait 1 minute
+
+  } catch (error) {
+    console.error('Test failed:', error.message);
+  }
+}
+test();
+"
+```
+
+### Phase 2: Task Execution Tests
+
+#### Test 3: Simple Command Execution
+Create a test script for command execution:
+
+```javascript
+// test-ec2-execution.js
+const { EC2Provider } = require('./dist/compute');
+
+async function testTaskExecution() {
+  const provider = new EC2Provider({
+    region: 'us-east-1',
+    instanceType: 't3.micro',
+    keyPair: 'remote-claude-test',
+    // Add your security group and subnet IDs
+    securityGroupIds: ['sg-xxxxxxxxx'],
+    subnetId: 'subnet-xxxxxxxxx',
+    idleTimeout: 60,
+    autoTerminate: true,
+    tags: { TestRun: 'task-execution-test' }
+  });
+
+  let environment;
+  
+  try {
+    console.log('🚀 Creating EC2 environment...');
+    environment = await provider.createEnvironment({
+      name: 'task-test-' + Date.now()
+    });
+    console.log('✅ Environment created:', environment.id);
+    console.log('   Public IP:', environment.metadata.publicIp);
+
+    // Test simple command
+    console.log('\n📋 Testing simple command execution...');
+    const simpleTask = {
+      id: 'test-1',
+      command: 'echo "Hello from EC2!" && uname -a && pwd'
+    };
+
+    const execution1 = await provider.executeTask(environment, simpleTask);
+    console.log('✅ Simple task result:');
+    console.log('   Status:', execution1.status);
+    console.log('   Exit Code:', execution1.exitCode);
+    console.log('   Output:', execution1.output?.substring(0, 200) + '...');
+
+    // Test Claude Code installation and usage
+    console.log('\n🤖 Testing Claude Code execution...');
+    const claudeTask = {
+      id: 'test-2',
+      command: 'claude --version',
+    };
+
+    const execution2 = await provider.executeTask(environment, claudeTask);
+    console.log('✅ Claude task result:');
+    console.log('   Status:', execution2.status);
+    console.log('   Exit Code:', execution2.exitCode);
+    console.log('   Output:', execution2.output);
+
+    // Test file operations
+    console.log('\n📁 Testing file operations...');
+    await provider.uploadFiles(environment.id, {
+      '/tmp/test.txt': 'Hello from Remote Claude!',
+      '/tmp/config.json': JSON.stringify({ test: true, timestamp: Date.now() })
+    });
+    console.log('✅ Files uploaded');
+
+    const downloadedFiles = await provider.downloadResults(environment.id, [
+      '/tmp/test.txt',
+      '/tmp/config.json'
+    ]);
+    console.log('✅ Files downloaded:');
+    console.log('   test.txt:', downloadedFiles['/tmp/test.txt']);
+    console.log('   config.json:', downloadedFiles['/tmp/config.json']);
+
+  } catch (error) {
+    console.error('❌ Test failed:', error.message);
+    console.error('Stack:', error.stack);
+  } finally {
+    if (environment) {
+      console.log('\n🧹 Cleaning up environment...');
+      try {
+        await provider.destroyEnvironment(environment.id);
+        console.log('✅ Environment cleaned up');
+      } catch (cleanupError) {
+        console.error('❌ Cleanup failed:', cleanupError.message);
+      }
+    }
+  }
+}
+
+testTaskExecution().catch(console.error);
+```
+
+#### Test 4: Integration with Remote Claude CLI
+```bash
+# Configure Remote Claude for EC2
+rclaude config ec2 --region us-east-1 --instance-type t3.micro --key-pair remote-claude-test
+
+# Test with a simple task
+rclaude run "echo 'Hello from Remote Claude EC2!'" --provider ec2
+
+# Test with a more complex task
+rclaude run "Create a simple Python script that prints the current time" --provider ec2 --ec2-instance-type t3.medium
+```
+
+### Phase 3: Performance and Cost Tests
+
+#### Test 5: Spot Instance Cost Optimization
+```bash
+# Test spot instances
+rclaude run "Run a 10-minute CPU benchmark" --provider ec2 --ec2-spot --ec2-instance-type c5.large
+
+# Compare costs
+rclaude ec2 costs --timeframe 1d
+```
+
+#### Test 6: Auto-termination Testing
+```bash
+# Test idle timeout
+rclaude run "echo 'Task complete, testing auto-termination'" --provider ec2 --idle-timeout 5
+
+# Monitor instance lifecycle
+watch -n 30 'aws ec2 describe-instances --filters "Name=tag:Project,Values=remote-claude" --query "Reservations[].Instances[].{ID:InstanceId,State:State.Name,Name:Tags[?Key==\`Name\`].Value|[0]}" --output table'
+```
+
+## Validation Checklist
+
+### ✅ Basic Functionality
+- [ ] EC2Provider initializes correctly
+- [ ] Configuration validation works
+- [ ] AWS credentials are recognized
+- [ ] Instance creation succeeds
+- [ ] Instance status monitoring works
+- [ ] Instance termination works
+
+### ✅ Task Execution
+- [ ] SSH connection establishment
+- [ ] Claude Code installation
+- [ ] Simple command execution
+- [ ] Complex Claude tasks
+- [ ] File upload/download
+- [ ] Error handling
+
+### ✅ Integration
+- [ ] CLI provider selection works
+- [ ] TaskManager integration works
+- [ ] Configuration system works
+- [ ] Notification system works
+
+### ✅ Cost Optimization
+- [ ] Spot instances work
+- [ ] Auto-termination works
+- [ ] Idle timeout works
+- [ ] Cost tracking works
+
+## Troubleshooting
+
+### Common Issues and Solutions
+
+#### "AccessDenied" Errors
+```bash
+# Check IAM permissions
+aws sts get-caller-identity
+aws iam simulate-principal-policy --policy-source-arn arn:aws:iam::ACCOUNT:user/USERNAME --action-names ec2:RunInstances --resource-arns '*'
+```
+
+#### SSH Connection Failures
+```bash
+# Check security group rules
+aws ec2 describe-security-groups --group-ids sg-xxxxxxxxx
+
+# Check instance status
+aws ec2 describe-instances --instance-ids i-xxxxxxxxx
+
+# Test SSH manually
+ssh -i ~/.ssh/remote-claude-test.pem ec2-user@INSTANCE_PUBLIC_IP
+```
+
+#### Instance Launch Failures
+```bash
+# Check quotas
+aws service-quotas get-service-quota --service-code ec2 --quota-code L-1216C47A
+
+# Check available instance types
+aws ec2 describe-instance-type-offerings --location-type availability-zone --filters Name=location,Values=us-east-1a
+```
+
+#### Network Issues
+```bash
+# Check VPC configuration
+aws ec2 describe-vpcs
+aws ec2 describe-subnets
+aws ec2 describe-internet-gateways
+aws ec2 describe-route-tables
+```
+
+## Performance Benchmarks
+
+Track these metrics during testing:
+
+- **Instance Launch Time**: Target < 2 minutes
+- **SSH Connection Time**: Target < 30 seconds  
+- **Claude Code Installation**: Target < 3 minutes
+- **Task Execution Overhead**: Target < 10% vs local
+- **File Transfer Speed**: Target > 10 MB/s
+- **Cost per Task**: Target < $0.10 for typical tasks
+
+## Security Considerations
+
+- **SSH Key Management**: Ensure private keys are properly secured
+- **Security Groups**: Restrict access to minimum required
+- **Instance Patching**: User data script updates system packages
+- **Network Isolation**: Use private subnets for production
+- **Secrets Management**: Never log or store sensitive data
+
+## Next Steps After Testing
+
+1. **Production Configuration**: Set up proper VPC, subnets, security groups
+2. **Monitoring Setup**: CloudWatch alarms for costs and failures  
+3. **Backup Strategy**: Instance snapshots and data backup
+4. **Scaling Strategy**: Auto Scaling groups for high volume
+5. **Cost Optimization**: Reserved instances for steady workloads
+
+## Cost Management
+
+### Estimated Costs (us-east-1)
+- **t3.micro**: $0.0104/hour (~$7.50/month if always on)
+- **t3.medium**: $0.0416/hour (~$30/month if always on)  
+- **c5.large**: $0.085/hour (~$62/month if always on)
+- **Spot instances**: 60-90% discount from on-demand prices
+
+### Cost Optimization Tips
+- Use spot instances for non-critical tasks
+- Set aggressive idle timeouts (30-60 minutes)
+- Use smaller instance types when possible
+- Monitor and alert on spending
+- Clean up failed/stuck instances regularly
+
+This comprehensive testing approach will validate that our EC2 provider works correctly with real AWS resources and is ready for production use.
