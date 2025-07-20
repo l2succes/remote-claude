@@ -50,12 +50,39 @@ This document tracks all major features and tasks for the Remote Claude project.
 - [ ] Custom MCP development tools
 
 ### Shared EC2 Implementation
-- [ ] Production-ready instance pool manager
+- [x] Basic instance pool manager
+- [x] Container orchestrator design
 - [ ] Container health monitoring
 - [ ] Persistent storage integration (EFS)
 - [ ] Multi-region support
 - [ ] Spot instance integration
 - [ ] Cost tracking and optimization
+
+### ECS + EC2 Implementation
+- [x] ECS provider implementation
+- [x] Task definition and service management
+- [x] Auto-scaling configuration
+- [ ] ECS Exec for command execution
+- [ ] CloudWatch integration
+- [ ] Cost optimization with Spot
+
+### Fly.io Provider
+- [x] Provider design document
+- [x] Cost analysis and comparison
+- [ ] Basic Fly.io provider implementation
+- [ ] Machine management
+- [ ] Volume persistence
+- [ ] WebSocket proxy integration
+- [ ] Multi-region deployment
+- [ ] Sleep/wake optimization
+
+### Multi-Cloud Architecture
+- [x] Provider factory pattern
+- [x] Provider selection strategy
+- [ ] Configuration management
+- [ ] Migration tools between providers
+- [ ] Unified monitoring across providers
+- [ ] Cost comparison dashboard
 
 ### Claude Code SDK Integration
 - [ ] Real Claude Code SDK integration (when available)
@@ -172,11 +199,12 @@ As requested, MCP (Model Context Protocol) management is a high priority feature
 - Modular architecture for easy extension
 
 ### Next Immediate Steps
-1. Fix MDX documentation system
-2. Start MCP management UI design
-3. Begin production implementation of shared EC2
-4. Set up WebSocket infrastructure
-5. Create API endpoints for UI
+1. Complete ECS + EC2 provider implementation
+2. Set up ECS infrastructure in AWS
+3. Create API endpoints for UI
+4. Implement WebSocket infrastructure
+5. Start MCP management UI design
+6. Add Fly.io provider when credits are available
 
 ## 🔗 Related Documents
 - [PRD.md](./PRD.md) - Product Requirements Document
