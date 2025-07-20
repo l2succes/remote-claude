@@ -1,0 +1,357 @@
+# 🚀 Remote Claude Quick Start Guide
+
+Welcome to Remote Claude! This guide will get you up and running in under 5 minutes.
+
+## Table of Contents
+- [Installation](#installation)
+- [Initial Setup](#initial-setup)
+- [Your First Task](#your-first-task)
+- [Task Management](#task-management)
+- [Backend Selection](#backend-selection)
+- [Project Configuration](#project-configuration)
+- [Common Workflows](#common-workflows)
+- [Next Steps](#next-steps)
+
+## Installation
+
+```bash
+# Install globally via npm
+npm install -g remote-claude
+
+# Verify installation
+rclaude --version
+```
+
+## Initial Setup
+
+### 1. GitHub Authentication (Required)
+
+First, create a GitHub Personal Access Token:
+1. Go to [GitHub Settings > Tokens](https://github.com/settings/tokens)
+2. Click "Generate new token"
+3. Select scopes: `repo`, `codespace`, `admin:org` (for Codespaces)
+4. Copy the token
+
+Configure Remote Claude:
+```bash
+# Set your GitHub token
+rclaude config github --token ghp_your_token_here
+
+# Verify authentication
+rclaude config github
+```
+
+### 2. Choose Your Backend (Optional)
+
+Remote Claude supports two compute backends:
+
+```bash
+# Interactive backend selection
+rclaude config backend
+
+# Or set directly
+rclaude config backend codespace  # GitHub Codespaces (default)
+rclaude config backend ec2         # AWS EC2
+```
+
+#### GitHub Codespaces (Default)
+- No additional setup required
+- Integrated with GitHub
+- Pay-per-use pricing
+
+#### AWS EC2
+- Requires AWS CLI configured (`aws configure`)
+- Supports spot instances for cost savings
+- Auto-terminates after tasks
+
+## Your First Task
+
+### Creating and Running a Task
+
+```bash
+# Run a new task (will prompt for details)
+rclaude run fix-login-bug
+```
+
+You'll be prompted to provide:
+1. **Task name**: A descriptive name (e.g., "Fix Login Bug")
+2. **Description**: What Claude should do (e.g., "Fix the authentication issue in login.js")
+3. **Repository**: GitHub repo (e.g., "myorg/myapp")
+4. **Backend**: Which compute provider to use
+
+The task is saved and can be reused:
+
+```bash
+# Run the same task again
+rclaude run fix-login-bug
+```
+
+### Task ID Best Practices
+
+Use descriptive, memorable task IDs:
+- ✅ `fix-auth`, `add-tests`, `refactor-api`
+- ❌ `task1`, `temp`, `test`
+
+## Task Management
+
+### List Your Tasks
+
+```bash
+# Show all tasks
+rclaude tasks
+
+# Show recently used tasks
+rclaude tasks --recent
+
+# Search for tasks
+rclaude tasks --search auth
+
+# Filter by repository
+rclaude tasks --repository myorg/myapp
+```
+
+### Interactive Task Menu
+
+Running `rclaude tasks` provides an interactive menu to:
+- Run a task
+- Edit task details
+- Delete tasks
+- Export tasks
+
+### Task Details
+
+Each task stores:
+- Task ID and name
+- Description (Claude's instructions)
+- Repository and branch
+- Default backend and options
+- Run history
+
+## Backend Selection
+
+### Per-Task Backend
+
+Override the default backend for specific tasks:
+
+```bash
+# Use EC2 for a compute-intensive task
+rclaude run data-processing --provider ec2
+
+# Use Codespaces for a quick fix
+rclaude run quick-fix --provider codespace
+```
+
+### EC2 Instance Types
+
+For EC2 tasks, choose appropriate instance types:
+
+```bash
+# Small tasks (default)
+rclaude run small-task --ec2-instance-type t3.micro
+
+# CPU-intensive tasks
+rclaude run compile-project --ec2-instance-type c5.xlarge
+
+# Use spot instances for cost savings
+rclaude run batch-job --ec2-spot
+```
+
+## Project Configuration
+
+### Initialize a Project
+
+Create project-specific settings:
+
+```bash
+# In your project directory
+rclaude init
+```
+
+This creates `.rclaude.json` with project defaults:
+
+```json
+{
+  "defaultBackend": "ec2",
+  "github": {
+    "defaultRepository": "myorg/myproject"
+  },
+  "defaults": {
+    "timeout": 3600,
+    "autoCommit": true,
+    "pullRequest": false
+  }
+}
+```
+
+### Configuration Hierarchy
+
+Settings are applied in this order:
+1. Command-line flags (highest priority)
+2. Task saved defaults
+3. Project config (`.rclaude.json`)
+4. Global config (`~/.rclauderc`)
+
+## Common Workflows
+
+### Quick Bug Fix
+
+```bash
+# Create a bug fix task
+rclaude run fix-user-validation
+
+# Run with notifications
+rclaude run fix-user-validation --notify-on-complete
+```
+
+### Feature Development
+
+```bash
+# Interactive development session
+rclaude run add-payment-feature --interactive
+
+# Auto-commit and create PR
+rclaude run add-payment-feature --auto-commit --pull-request
+```
+
+### Data Analysis
+
+```bash
+# Long-running EC2 task
+rclaude run analyze-logs --provider ec2 --timeout 7200
+
+# Check progress
+rclaude status
+```
+
+### Batch Processing
+
+```bash
+# Create multiple related tasks
+rclaude run test-suite-1
+rclaude run test-suite-2
+rclaude run test-suite-3
+
+# Monitor all tasks
+rclaude status --all
+```
+
+## Interactive Sessions
+
+For debugging or exploratory work:
+
+```bash
+# Start interactive session
+rclaude run debug-issue --interactive
+
+# List active sessions
+rclaude session --list
+
+# Reconnect to session
+rclaude session --connect session-name
+```
+
+## Cost Optimization
+
+### For GitHub Codespaces
+```bash
+# Use smaller machines for simple tasks
+rclaude run simple-task --machine-type basicLinux32gb
+
+# Set idle timeout
+rclaude run task --idle-timeout 30
+```
+
+### For AWS EC2
+```bash
+# Use spot instances (up to 90% savings)
+rclaude run task --ec2-spot
+
+# Use appropriate instance types
+rclaude run task --ec2-instance-type t3.micro
+
+# Check costs
+rclaude ec2 costs --detailed
+```
+
+## Notifications
+
+Set up notifications for long-running tasks:
+
+```bash
+# Configure email
+rclaude config notify --email your@email.com
+
+# Configure Slack
+rclaude config notify --slack https://hooks.slack.com/...
+
+# Use with tasks
+rclaude run long-task --notify-on-complete --notify-on-fail
+```
+
+## Troubleshooting
+
+### Task Creation Issues
+
+If a task ID already exists:
+```bash
+# View existing task
+rclaude tasks --search my-task
+
+# Choose a different ID
+rclaude run my-task-v2
+```
+
+### Authentication Problems
+
+```bash
+# Check current auth
+rclaude config github
+
+# Re-authenticate with GitHub CLI
+gh auth login
+
+# Verify token permissions
+gh auth status
+```
+
+### Backend Issues
+
+```bash
+# For Codespaces
+gh codespace list
+
+# For EC2
+aws sts get-caller-identity
+rclaude ec2 list
+```
+
+## Next Steps
+
+Now that you're up and running:
+
+1. **Explore Advanced Features**
+   - [Task Management Guide](./tasks.md)
+   - [Backend Configuration](./backends.md)
+   - [Project Setup](./configuration.md)
+
+2. **Optimize Your Workflow**
+   - Create task templates for common operations
+   - Set up project-specific configurations
+   - Configure notifications for team collaboration
+
+3. **Learn Best Practices**
+   - Use descriptive task IDs
+   - Set appropriate timeouts
+   - Choose the right backend for each task
+   - Leverage saved configurations
+
+## Getting Help
+
+- Run `rclaude --help` for command help
+- Check our [FAQ](./faq.md)
+- Report issues on [GitHub](https://github.com/l2succes/remote-claude/issues)
+- Join our [Discord community](https://discord.gg/remote-claude)
+
+---
+
+**Happy coding with Remote Claude! 🚀**

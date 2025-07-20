@@ -12,28 +12,36 @@
 ╚██████╗███████╗██║  ██║╚██████╔╝██████╔╝███████╗     
  ╚═════╝╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚═════╝ ╚══════╝     
 
-# Remote Claude (Claude in Cloud)
+# Remote Claude CLI
 
-> **Execute Claude Code tasks remotely in GitHub Codespaces with comprehensive task management and notification capabilities**
+> **Run Claude Code tasks remotely on GitHub Codespaces or AWS EC2 with task management and notifications**
 
 [![npm version](https://badge.fury.io/js/remote-claude.svg)](https://badge.fury.io/js/remote-claude)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen)](https://nodejs.org/)
 
-## 🚀 Overview
+## 🚀 Quick Start
 
-Remote Claude (also known as **Claude in Cloud**) is a powerful CLI tool that enables you to execute Claude Code tasks in GitHub Codespaces remotely. It provides seamless integration with GitHub's cloud development environment, allowing you to run AI-powered coding tasks with comprehensive notification and task management capabilities.
+```bash
+# Install
+npm install -g remote-claude
 
-### ✨ Key Features
+# Initialize project (optional)
+rclaude init
 
-- 🌩️ **Remote Execution**: Run Claude Code tasks in GitHub Codespaces
-- 📧 **Multi-Channel Notifications**: Email, Slack, and webhook notifications
-- 📊 **Task Management**: Track, monitor, and manage multiple concurrent tasks
-- 🔐 **Secure Authentication**: Multiple GitHub authentication methods
-- ⚡ **Real-time Updates**: Live task progress monitoring
-- 🎯 **Flexible Configuration**: Customizable settings and templates
-- 🔄 **Auto-cleanup**: Automatic resource management
-- 📈 **Priority Queuing**: Task prioritization and scheduling
+# Run your first task
+rclaude run fix-auth-bug
+```
+
+## ✨ Key Features
+
+- **🔄 Task-Based Workflow** - Save and reuse tasks with `rclaude run <task-id>`
+- **☁️ Multi-Cloud Support** - GitHub Codespaces and AWS EC2 backends
+- **📁 Project Configuration** - Per-project settings with `.rclaude.json`
+- **🎯 Smart Defaults** - Automatic backend selection and configuration
+- **🔔 Notifications** - Email, Slack, and webhook notifications
+- **📊 Task Management** - Track, monitor, and manage multiple tasks
+- **🤖 Auto EC2 Connection** - Seamless SSH connection for EC2 tasks
 
 ## 📦 Installation
 
@@ -41,260 +49,276 @@ Remote Claude (also known as **Claude in Cloud**) is a powerful CLI tool that en
 
 - **Node.js 18+** 
 - **GitHub account** with Codespaces access
-- **GitHub Personal Access Token** with `repo` and `codespace` scopes ([Setup Guide](./docs/setup-guide.md#github-personal-access-token))
-- **[GitHub CLI](https://cli.github.com/)** (optional, but recommended)
+- **GitHub Personal Access Token** ([Create one](https://github.com/settings/tokens))
+- **AWS CLI** (for EC2 backend)
 
-### Install from NPM
-
-```bash
-npm install -g remote-claude
-```
-
-### Install from Source
-
-```bash
-git clone https://github.com/l2succes/remote-claude.git
-cd remote-claude
-npm install
-npm run build
-npm link
-```
-
-## 🚀 Quick Start
-
-### 1. Install Remote Claude
+### Install
 
 ```bash
 npm install -g remote-claude
 ```
 
-### 2. Setup GitHub Authentication
+## 🎯 Getting Started
+
+### 1. Configure Authentication
 
 ```bash
-# Configure with your GitHub token (get one at https://github.com/settings/tokens)
+# GitHub authentication (required for Codespaces)
 rclaude config github --token YOUR_GITHUB_TOKEN
 
-# Set your default repository (optional)
-rclaude config github --repository owner/repo-name
+# Set default backend (optional)
+rclaude config backend
 ```
 
-### 3. Run Your First Task
+### 2. Initialize Your Project (Optional)
 
 ```bash
-# Execute a simple task
-rclaude run "Fix the bug in src/utils.js" --repo owner/repo
-
-# Or start an interactive session for live coding
-rclaude run --interactive "Debug the authentication issue" --repo owner/repo
+# Create project-specific configuration
+rclaude init
 ```
 
-### 4. Monitor Progress
+### 3. Create and Run Tasks
 
 ```bash
-# Check task status
-rclaude status
+# First run creates the task
+rclaude run fix-auth-bug
+# -> Prompts for task details, saves for reuse
 
-# List active interactive sessions
-rclaude session --list
+# Subsequent runs use saved configuration
+rclaude run fix-auth-bug
 ```
 
-### 5. Common Workflows
+### 4. Manage Tasks
 
 ```bash
-# High priority task with notifications
-rclaude run "Critical security fix" --priority high --notify-on-complete
+# List all tasks
+rclaude tasks
 
-# Long-running task with extended timeout
-rclaude run "Overnight analysis" --idle-timeout 480 --machine-type standardLinux32gb
+# Show recent tasks
+rclaude tasks --recent
 
-# Auto-commit changes and create PR
-rclaude run "Implement new feature" --auto-commit --pull-request
-
-# Connect to existing interactive session
-rclaude session --connect codespace-name
+# Search tasks
+rclaude tasks --search auth
 ```
 
-> **💡 Pro Tip**: Use `--interactive` for live coding sessions that persist even if you disconnect!
+## 📖 Task-Based Workflow
 
-## 📖 Usage Examples
-
-### Basic Task Execution
+Remote Claude uses a task-based workflow where each task has an ID and saved configuration:
 
 ```bash
-# Simple task
-rclaude run "Refactor the user authentication module"
+# Create a new task
+rclaude run deploy-api
+# -> Task name: Deploy API to Production
+# -> Description: Build and deploy the API service
+# -> Repository: myorg/api-service
+# -> Default backend: ec2
 
-# With specific repository and branch
-rclaude run "Add error handling" --repo owner/repo --branch feature/error-handling
+# Run the saved task
+rclaude run deploy-api
 
-# High priority task with notifications
-rclaude run "Critical security fix" --priority high --notify-on-start --notify-on-complete
-```
-
-### Advanced Task Management
-
-```bash
-# Long-running task with custom timeout
-rclaude run "Complete code review and optimization" --timeout 3600
-
-# Auto-commit changes and create PR
-rclaude run "Implement new feature" --auto-commit --pull-request
-
-# Keep codespace for debugging
-rclaude run "Debug performance issue" --keep-codespace
-```
-
-### Task Monitoring
-
-```bash
-# View all tasks
-rclaude status
-
-# Monitor specific task
-rclaude status task-abc123
-
-# View task results
-rclaude results task-abc123
-
-# Download result files
-rclaude results task-abc123 --download ./results/
+# Override options
+rclaude run deploy-api --provider codespace
 ```
 
 ## ⚙️ Configuration
 
-Configuration is stored in `~/.rclirc` and supports multiple formats (JSON, YAML, JS).
-
-### Example Configuration
+### Global Configuration (`~/.rclauderc`)
 
 ```json
 {
+  "defaultBackend": "codespace",
   "github": {
-    "defaultRepository": "owner/repo-name",
+    "token": "ghp_...",
     "defaultMachine": "basicLinux32gb",
     "defaultIdleTimeout": 30
   },
-  "notifications": {
-    "email": {
-      "smtp": {
-        "host": "smtp.gmail.com",
-        "port": 587,
-        "secure": false,
-        "auth": {
-          "user": "your@email.com",
-          "pass": "your-app-password"
-        }
-      },
-      "from": "your@email.com",
-      "to": "notifications@email.com"
-    },
-    "slack": {
-      "webhook": "https://hooks.slack.com/services/...",
-      "channel": "#dev-notifications",
-      "username": "Remote Claude"
-    }
-  },
-  "tasks": {
-    "maxConcurrent": 3,
-    "defaultTimeout": 1800,
-    "autoCleanup": true
+  "ec2": {
+    "region": "us-east-1",
+    "instanceType": "t3.medium",
+    "spotInstance": true
   }
 }
 ```
 
-## 🔧 Commands Reference
+### Project Configuration (`.rclaude.json`)
+
+```json
+{
+  "defaultBackend": "ec2",
+  "github": {
+    "defaultRepository": "myorg/myapp"
+  },
+  "defaults": {
+    "timeout": 3600,
+    "autoCommit": true
+  }
+}
+```
+
+## 🔧 Commands
 
 ### Core Commands
 
 | Command | Description |
 |---------|-------------|
-| `rclaude run <task>` | Execute a Claude Code task |
-| `rclaude status [taskId]` | View task status and progress |
-| `rclaude results [taskId]` | View and manage task results |
-| `rclaude cancel <taskId>` | Cancel running tasks |
-| `rclaude config <section>` | Manage configuration |
+| `rclaude init` | Initialize project configuration |
+| `rclaude run <task-id>` | Execute a saved task (creates if new) |
+| `rclaude tasks` | List and manage saved tasks |
+| `rclaude status` | View running tasks |
+| `rclaude session` | Manage interactive sessions |
 
 ### Configuration Commands
 
 | Command | Description |
 |---------|-------------|
-| `rclaude config github` | Configure GitHub authentication |
-| `rclaude config notify` | Configure notification channels |
-| `rclaude config tasks` | Configure task defaults |
+| `rclaude config` | View configuration |
+| `rclaude config backend` | Configure default compute backend |
+| `rclaude config github` | Configure GitHub settings |
+| `rclaude config ec2` | Configure AWS EC2 settings |
+| `rclaude config notify` | Configure notifications |
 
-## 📧 Notification System
+### EC2 Commands
 
-Remote Claude supports multiple notification channels to keep you informed about task progress:
+| Command | Description |
+|---------|-------------|
+| `rclaude ec2 list` | List EC2 instances |
+| `rclaude ec2 connect <id>` | Connect to instance |
+| `rclaude ec2 costs` | Show cost estimates |
+| `rclaude ec2 terminate <id>` | Terminate instance |
 
-### Supported Channels
+## 🌐 Backend Providers
 
-- **📧 Email (SMTP)**: HTML email templates with attachments
-- **💬 Slack**: Rich message formatting with interactive buttons
-- **🔗 Custom Webhooks**: JSON payload format for custom integrations
+### GitHub Codespaces (Default)
+- Cloud development environments
+- Integrated with GitHub repositories
+- Pay-as-you-go pricing
 
-### Notification Events
-
-- **Task Started**: When a task begins execution
-- **Task Progress**: Optional progress updates
-- **Task Completed**: When a task finishes successfully
-- **Task Failed**: When a task encounters an error
-- **System Events**: Codespace creation, resource warnings, etc.
-
-## 🏗️ Architecture
-
+```bash
+# Use Codespaces
+rclaude run my-task --provider codespace
 ```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   CLI Client    │───▶│  Task Manager   │───▶│  GitHub API     │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                       │                       │
-         ▼                       ▼                       ▼
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│  Notification   │    │   Webhook       │    │   Codespace     │
-│    System       │    │   Server        │    │   Environment   │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
+
+### AWS EC2
+- Scalable compute instances
+- Spot instance support (up to 90% savings)
+- Auto-termination after tasks
+
+```bash
+# Use EC2
+rclaude run my-task --provider ec2
+
+# With specific instance type
+rclaude run my-task --provider ec2 --ec2-instance-type t3.large
 ```
+
+## 📧 Notifications
+
+Configure notifications for task events:
+
+```bash
+# Email notifications
+rclaude config notify --email your@email.com
+
+# Slack notifications  
+rclaude config notify --slack https://hooks.slack.com/...
+
+# Use with tasks
+rclaude run my-task --notify-on-complete
+```
+
+## 🎮 Interactive Mode
+
+For live coding sessions:
+
+```bash
+# Start interactive session
+rclaude run debug-task --interactive
+
+# Connect to existing session
+rclaude session --connect session-name
+```
+
+## 💡 Examples
+
+### Common Workflows
+
+```bash
+# High-priority bug fix
+rclaude run critical-fix --priority high --notify-on-complete
+
+# Long-running analysis
+rclaude run data-analysis --timeout 7200 --provider ec2
+
+# Feature development with PR
+rclaude run new-feature --auto-commit --pull-request
+```
+
+### Project Setup
+
+```bash
+# Initialize project with EC2 backend
+rclaude init
+# -> Select EC2 as default backend
+# -> Configure instance type
+# -> Set default timeout
+
+# All tasks in project use EC2 by default
+rclaude run any-task
+```
+
+## 🆘 Troubleshooting
+
+### Authentication Issues
+```bash
+# Check GitHub auth
+rclaude config github
+
+# Re-authenticate
+gh auth login
+```
+
+### Task Not Found
+```bash
+# List all tasks
+rclaude tasks
+
+# Create new task
+rclaude run new-task-id
+```
+
+### EC2 Connection Issues
+```bash
+# Check AWS credentials
+aws sts get-caller-identity
+
+# List instances
+rclaude ec2 list
+```
+
+## 📚 Documentation
+
+- [Quick Start Guide](./docs/quick-start.md)
+- [Configuration Guide](./docs/configuration.md)
+- [Task Management](./docs/tasks.md)
+- [Backend Providers](./docs/backends.md)
+- [Troubleshooting](./docs/troubleshooting.md)
 
 ## 🤝 Contributing
 
 We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
 
-### Development Setup
-
-```bash
-git clone https://github.com/l2succes/remote-claude.git
-cd remote-claude
-npm install
-npm run dev
-```
-
-### Running Tests
-
-```bash
-npm test
-npm run test:watch
-```
-
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🆘 Support
-
-- 📖 **Documentation**:
-  - [Setup Guide](./docs/setup-guide.md) - Detailed setup instructions
-  - [Persistent Sessions](./docs/persistent-sessions.md) - Interactive session management
-  - [Troubleshooting](./docs/troubleshooting.md) - Common issues and solutions
-  - [API Reference](./docs/api-reference.md) - Complete command reference
-- 🐛 **Issues**: [GitHub Issues](https://github.com/l2succes/remote-claude/issues)
-- 💬 **Discussions**: [GitHub Discussions](https://github.com/l2succes/remote-claude/discussions)
+MIT License - see [LICENSE](LICENSE) for details.
 
 ## 🙏 Acknowledgments
 
-- Built with ❤️ using TypeScript and Node.js
-- Powered by GitHub Codespaces
-- Inspired by the need for remote AI-powered development
+- Built with TypeScript and Node.js
+- Powered by GitHub Codespaces and AWS EC2
+- Inspired by the need for scalable AI development
 
 ---
 
 <div align="center">
-  <strong>Remote Claude - Bringing Claude to the Cloud ☁️</strong>
+  <strong>Remote Claude - AI Development in the Cloud ☁️</strong>
 </div>

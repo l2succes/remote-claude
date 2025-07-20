@@ -1,0 +1,454 @@
+# Configuration Guide
+
+Remote Claude uses a flexible configuration system with multiple levels of settings that cascade from global to project to command-line options.
+
+## Table of Contents
+- [Configuration Files](#configuration-files)
+- [Configuration Hierarchy](#configuration-hierarchy)
+- [Global Configuration](#global-configuration)
+- [Project Configuration](#project-configuration)
+- [Backend Configuration](#backend-configuration)
+- [Environment Variables](#environment-variables)
+- [Configuration Commands](#configuration-commands)
+- [Examples](#examples)
+
+## Configuration Files
+
+Remote Claude uses two main configuration files:
+
+1. **Global Configuration**: `~/.rclauderc`
+   - User-wide settings
+   - Default backend preferences
+   - Authentication tokens
+   - Notification settings
+
+2. **Project Configuration**: `.rclaude.json`
+   - Project-specific settings
+   - Overrides global settings
+   - Can be committed to version control
+   - Created with `rclaude init`
+
+## Configuration Hierarchy
+
+Settings are applied in this order (highest to lowest priority):
+
+1. **Command-line flags** - Direct options passed to commands
+2. **Task defaults** - Saved settings for specific tasks
+3. **Project config** - `.rclaude.json` in current directory
+4. **Global config** - `~/.rclauderc` in home directory
+5. **System defaults** - Built-in defaults
+
+### Example
+
+```bash
+# Global config sets: provider=codespace
+# Project config sets: provider=ec2
+# Task default sets: provider=codespace
+# Command line: --provider ec2
+
+# Result: EC2 is used (command line wins)
+```
+
+## Global Configuration
+
+### Location
+
+- **Unix/Linux/macOS**: `~/.rclauderc`
+- **Windows**: `%USERPROFILE%\.rclauderc`
+
+### Structure
+
+```json
+{
+  "defaultBackend": "codespace",
+  "github": {
+    "token": "ghp_...",
+    "username": "your-username",
+    "defaultRepository": "org/repo",
+    "defaultMachine": "basicLinux32gb",
+    "defaultIdleTimeout": 30
+  },
+  "ec2": {
+    "region": "us-east-1",
+    "instanceType": "t3.medium",
+    "keyPair": "my-key",
+    "securityGroup": "sg-123456",
+    "subnet": "subnet-123456",
+    "spotInstance": true,
+    "idleTimeout": 60
+  },
+  "notifications": {
+    "email": "your@email.com",
+    "slack": {
+      "webhookUrl": "https://hooks.slack.com/..."
+    },
+    "pushover": {
+      "appToken": "app-token",
+      "userKey": "user-key"
+    },
+    "webhook": "https://your-webhook.com"
+  },
+  "defaults": {
+    "timeout": 7200,
+    "priority": "normal",
+    "autoCommit": false,
+    "pullRequest": false,
+    "notifyOnComplete": true,
+    "notifyOnFail": true
+  }
+}
+```
+
+### Setting Global Configuration
+
+```bash
+# Interactive backend selection
+rclaude config backend
+
+# Set specific values
+rclaude config github --token YOUR_TOKEN
+rclaude config ec2 --region us-west-2
+rclaude config notify --email your@email.com
+```
+
+## Project Configuration
+
+### Creating Project Config
+
+```bash
+# Interactive initialization
+rclaude init
+
+# Creates .rclaude.json with prompts for:
+# - Default backend
+# - Repository
+# - Task defaults
+# - Backend-specific settings
+```
+
+### Structure
+
+```json
+{
+  "defaultBackend": "ec2",
+  "github": {
+    "defaultRepository": "myorg/myproject",
+    "defaultMachine": "standardLinux32gb"
+  },
+  "ec2": {
+    "instanceType": "t3.large",
+    "region": "eu-west-1"
+  },
+  "defaults": {
+    "timeout": 3600,
+    "autoCommit": true,
+    "pullRequest": true,
+    "priority": "high"
+  }
+}
+```
+
+### Use Cases
+
+1. **Repository-Specific Settings**
+   ```json
+   {
+     "github": {
+       "defaultRepository": "myorg/api-service"
+     },
+     "defaultBackend": "ec2",
+     "ec2": {
+       "instanceType": "c5.xlarge"
+     }
+   }
+   ```
+
+2. **Team Collaboration**
+   ```json
+   {
+     "defaultBackend": "codespace",
+     "defaults": {
+       "machineType": "standardLinux32gb",
+       "autoCommit": false,
+       "pullRequest": true
+     }
+   }
+   ```
+
+3. **CI/CD Integration**
+   ```json
+   {
+     "defaultBackend": "ec2",
+     "ec2": {
+       "spotInstance": true,
+       "instanceType": "t3.small"
+     },
+     "defaults": {
+       "timeout": 1800,
+       "notifyOnFail": true
+     }
+   }
+   ```
+
+## Backend Configuration
+
+### GitHub Codespaces
+
+```bash
+# Configure Codespaces settings
+rclaude config backend codespace
+
+# Set machine type
+rclaude config github --defaultMachine premiumLinux
+
+# Set idle timeout (minutes)
+rclaude config github --defaultIdleTimeout 60
+```
+
+**Available Machine Types:**
+- `basicLinux32gb` - 2 cores, 8GB RAM (default)
+- `standardLinux32gb` - 4 cores, 16GB RAM
+- `premiumLinux` - 8 cores, 32GB RAM
+
+### AWS EC2
+
+```bash
+# Configure EC2 settings
+rclaude config backend ec2
+
+# Set region
+rclaude config ec2 --region us-west-2
+
+# Set instance type
+rclaude config ec2 --instance-type t3.large
+
+# Enable spot instances
+rclaude config ec2 --spot-instance
+
+# Set SSH key pair
+rclaude config ec2 --key-pair my-key
+```
+
+**Common Instance Types:**
+- `t3.micro` - 2 vCPU, 1GB RAM (Free tier)
+- `t3.medium` - 2 vCPU, 4GB RAM (default)
+- `t3.large` - 2 vCPU, 8GB RAM
+- `c5.large` - 2 vCPU, 4GB RAM (compute optimized)
+- `c5.xlarge` - 4 vCPU, 8GB RAM (compute optimized)
+
+## Environment Variables
+
+Remote Claude respects these environment variables:
+
+```bash
+# GitHub authentication
+export GITHUB_TOKEN=ghp_your_token
+
+# AWS credentials (for EC2)
+export AWS_ACCESS_KEY_ID=your_key
+export AWS_SECRET_ACCESS_KEY=your_secret
+export AWS_DEFAULT_REGION=us-east-1
+
+# Configuration paths
+export RCLAUDE_CONFIG_PATH=/custom/path/.rclauderc
+export RCLAUDE_LOG_LEVEL=debug
+
+# Default values
+export RCLAUDE_DEFAULT_BACKEND=ec2
+export RCLAUDE_DEFAULT_TIMEOUT=3600
+```
+
+## Configuration Commands
+
+### View Configuration
+
+```bash
+# Show current configuration overview
+rclaude config
+
+# Show specific section
+rclaude config github
+rclaude config ec2
+rclaude config notify
+```
+
+### Backend Configuration
+
+```bash
+# Interactive backend setup
+rclaude config backend
+
+# Set backend directly
+rclaude config backend codespace --global
+rclaude config backend ec2 --project
+```
+
+### GitHub Configuration
+
+```bash
+# Set GitHub token
+rclaude config github --token ghp_your_token
+
+# Set default repository
+rclaude config github --repository owner/repo
+
+# Set default machine type
+rclaude config github --defaultMachine standardLinux32gb
+```
+
+### EC2 Configuration
+
+```bash
+# Full EC2 setup
+rclaude config ec2 \
+  --region us-east-1 \
+  --instance-type t3.medium \
+  --key-pair my-key \
+  --spot-instance
+```
+
+### Notification Configuration
+
+```bash
+# Email notifications
+rclaude config notify --email your@email.com
+
+# Slack notifications
+rclaude config notify --slack https://hooks.slack.com/...
+
+# Multiple channels
+rclaude config notify \
+  --email your@email.com \
+  --slack https://hooks.slack.com/...
+```
+
+## Examples
+
+### Example 1: Personal Project
+
+```bash
+# Initialize project
+rclaude init
+
+# .rclaude.json
+{
+  "defaultBackend": "codespace",
+  "github": {
+    "defaultRepository": "myuser/personal-project"
+  },
+  "defaults": {
+    "timeout": 1800,
+    "autoCommit": true
+  }
+}
+```
+
+### Example 2: Team Project with EC2
+
+```bash
+# Global setup (one time)
+rclaude config backend ec2
+rclaude config ec2 --region us-east-1 --key-pair team-key
+
+# Project setup
+rclaude init
+
+# .rclaude.json
+{
+  "defaultBackend": "ec2",
+  "ec2": {
+    "instanceType": "c5.xlarge",
+    "spotInstance": true
+  },
+  "defaults": {
+    "timeout": 7200,
+    "pullRequest": true,
+    "notifyOnComplete": true
+  }
+}
+```
+
+### Example 3: Mixed Backend Usage
+
+```bash
+# Global: Codespaces default
+echo '{"defaultBackend": "codespace"}' > ~/.rclauderc
+
+# Project: EC2 for heavy tasks
+{
+  "defaultBackend": "codespace",
+  "tasks": {
+    "build-prod": {
+      "provider": "ec2",
+      "ec2InstanceType": "c5.2xlarge"
+    },
+    "quick-fix": {
+      "provider": "codespace",
+      "machineType": "basicLinux32gb"
+    }
+  }
+}
+```
+
+## Best Practices
+
+1. **Use Project Config for Team Settings**
+   - Commit `.rclaude.json` to share settings
+   - Exclude sensitive data (use env vars)
+
+2. **Set Appropriate Defaults**
+   - Match backend to workload
+   - Set reasonable timeouts
+   - Configure notifications for long tasks
+
+3. **Optimize Costs**
+   - Use spot instances for EC2
+   - Set idle timeouts
+   - Choose appropriate instance sizes
+
+4. **Security**
+   - Never commit tokens or secrets
+   - Use environment variables for sensitive data
+   - Restrict EC2 security groups
+
+## Troubleshooting
+
+### Config Not Loading
+
+```bash
+# Check config location
+rclaude config
+
+# Validate JSON syntax
+cat ~/.rclauderc | jq .
+
+# Reset configuration
+rm ~/.rclauderc
+rclaude config backend
+```
+
+### Precedence Issues
+
+```bash
+# Check effective configuration
+rclaude run my-task --dry-run
+
+# Force specific config
+rclaude run my-task --provider ec2 --no-project-config
+```
+
+### Migration from Old Config
+
+If upgrading from an older version:
+
+```bash
+# Backup old config
+cp ~/.rclirc ~/.rclirc.backup
+
+# Initialize new config
+rclaude config backend
+
+# Manually migrate settings
+rclaude config github --token YOUR_TOKEN
+rclaude config notify --email YOUR_EMAIL
+```
