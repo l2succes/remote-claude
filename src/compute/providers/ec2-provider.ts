@@ -36,7 +36,7 @@ import {
 
 export class EC2Provider extends EventEmitter implements ComputeProvider {
   readonly name = 'Amazon EC2'
-  readonly type = ComputeProviderType.EC2
+  readonly type = 'ec2' as any // Legacy provider
 
   private ec2Client: EC2Client
   private ssmClient: SSMClient

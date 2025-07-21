@@ -30,7 +30,9 @@
   "author": "Luc",
   "license": "MIT",
   "dependencies": {
+    "@aws-sdk/client-auto-scaling": "^3.848.0",
     "@aws-sdk/client-ec2": "^3.835.0",
+    "@aws-sdk/client-ecs": "^3.848.0",
     "@aws-sdk/client-ssm": "^3.835.0",
     "@mdx-js/loader": "^3.1.0",
     "@mdx-js/react": "^3.1.0",

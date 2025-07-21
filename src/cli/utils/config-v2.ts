@@ -6,7 +6,7 @@ import chalk from 'chalk';
 
 export interface ConfigV2 {
   // Default compute backend
-  defaultBackend?: 'codespace' | 'ec2' | 'local';
+  defaultBackend?: 'codespace' | 'aws' | 'fly' | 'local';
   
   // GitHub configuration
   github?: {
@@ -17,16 +17,31 @@ export interface ConfigV2 {
     defaultIdleTimeout?: number;
   };
   
-  // EC2 configuration
-  ec2?: {
+  // AWS configuration (unified)
+  aws?: {
+    mode?: 'ec2' | 'ecs' | 'fargate';
     region?: string;
-    instanceType?: string;
-    keyPair?: string;
-    securityGroup?: string;
-    subnet?: string;
-    spotInstance?: boolean;
-    idleTimeout?: number;
+    
+    // EC2 mode settings
+    ec2?: {
+      instanceType?: string;
+      keyPair?: string;
+      securityGroup?: string;
+      subnet?: string;
+      spotInstance?: boolean;
+      idleTimeout?: number;
+    };
+    
+    // ECS mode settings
+    ecs?: {
+      clusterName?: string;
+      instanceType?: string;
+      taskDefinitionArn?: string;
+      subnetIds?: string[];
+      securityGroupIds?: string[];
+    };
   };
+  
   
   // Notifications
   notifications?: {
@@ -250,7 +265,8 @@ export class ConfigManagerV2 {
   /**
    * Configure default backend
    */
-  async configureBackend(backend: 'codespace' | 'ec2' | 'local', scope: 'global' | 'project' = 'global'): Promise<void> {
+  async configureBackend(backend: 'codespace' | 'aws' | 'fly' | 'local', scope: 'global' | 'project' = 'global'): Promise<void> {
+    
     await this.set('defaultBackend', backend, scope);
     console.log(chalk.green(`✅ Default backend set to: ${backend} (${scope})`));
   }
@@ -258,8 +274,8 @@ export class ConfigManagerV2 {
   /**
    * Get default backend
    */
-  getDefaultBackend(): 'codespace' | 'ec2' | 'local' {
-    return this.get<'codespace' | 'ec2' | 'local'>('defaultBackend') || 'codespace';
+  getDefaultBackend(): 'codespace' | 'aws' | 'fly' | 'local' {
+    return this.get<'codespace' | 'aws' | 'fly' | 'local'>('defaultBackend') || 'codespace';
   }
 
   /**
@@ -322,43 +338,58 @@ export class ConfigManagerV2 {
   }
 
   /**
-   * Configure EC2 settings
+   * Configure AWS settings
    */
-  async configureEC2(options: {
+  async configureAWS(options: {
+    mode?: 'ec2' | 'ecs' | 'fargate';
     region?: string;
-    instanceType?: string;
-    keyPair?: string;
-    securityGroup?: string;
-    subnet?: string;
-    spotInstance?: boolean;
-    idleTimeout?: number;
+    ec2?: {
+      instanceType?: string;
+      spotInstance?: boolean;
+      idleTimeout?: number;
+    };
+    ecs?: {
+      clusterName?: string;
+      instanceType?: string;
+    };
   }, scope: 'global' | 'project' = 'global'): Promise<void> {
-    const config = scope === 'project' ? 
-      (this.projectConfig || (this.projectConfig = {})) : 
-      this.globalConfig;
+    const promises: Promise<void>[] = [];
     
-    if (!config.ec2) {
-      config.ec2 = {};
+    if (options.mode !== undefined) {
+      promises.push(this.set('aws.mode', options.mode, scope));
     }
-
-    let hasChanges = false;
-
-    Object.entries(options).forEach(([key, value]) => {
-      if (value !== undefined) {
-        (config.ec2 as any)[key] = value;
-        console.log(chalk.green(`✅ EC2 ${key} set to:`), value);
-        hasChanges = true;
-      }
-    });
-
-    if (hasChanges) {
-      if (scope === 'project') {
-        await this.saveProjectConfig();
-      } else {
-        await this.saveGlobalConfig();
-      }
+    if (options.region !== undefined) {
+      promises.push(this.set('aws.region', options.region, scope));
     }
+    
+    // Mode-specific settings
+    if (options.ec2) {
+      Object.entries(options.ec2).forEach(([key, value]) => {
+        promises.push(this.set(`aws.ec2.${key}`, value, scope));
+      });
+    }
+    if (options.ecs) {
+      Object.entries(options.ecs).forEach(([key, value]) => {
+        promises.push(this.set(`aws.ecs.${key}`, value, scope));
+      });
+    }
+    
+    await Promise.all(promises);
+    console.log(chalk.green(`✅ AWS configuration updated (${scope})`));
   }
+  
+  /**
+   * Get AWS mode (with migration from old backends)
+   */
+  getAWSMode(): 'ec2' | 'ecs' | 'fargate' {
+    // Check if AWS mode is explicitly set
+    const awsMode = this.get<'ec2' | 'ecs' | 'fargate'>('aws.mode');
+    if (awsMode) return awsMode;
+    
+    // Default to ECS for AWS
+    return 'ecs';
+  }
+  
 
   /**
    * Display current configuration
@@ -397,13 +428,13 @@ export class ConfigManagerV2 {
         }
       }
       
-      if (mergedConfig.ec2) {
-        console.log(chalk.yellow('\nEC2:'));
-        if (mergedConfig.ec2.region) {
-          console.log(`  Region: ${chalk.green(mergedConfig.ec2.region)}`);
+      if (mergedConfig.aws) {
+        console.log(chalk.yellow('\nAWS:'));
+        if (mergedConfig.aws.mode) {
+          console.log(`  Mode: ${chalk.green(mergedConfig.aws.mode)}`);
         }
-        if (mergedConfig.ec2.instanceType) {
-          console.log(`  Instance: ${chalk.green(mergedConfig.ec2.instanceType)}`);
+        if (mergedConfig.aws.region) {
+          console.log(`  Region: ${chalk.green(mergedConfig.aws.region)}`);
         }
       }
     }
@@ -444,9 +475,6 @@ export class ConfigManagerV2 {
     
     if (backend === 'codespace') {
       return !!(config.github?.token || process.env.GITHUB_TOKEN);
-    } else if (backend === 'ec2') {
-      // EC2 uses AWS credentials from environment/AWS CLI
-      return true;
     }
     
     return true;

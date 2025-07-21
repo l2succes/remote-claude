@@ -9,6 +9,8 @@ import { TaskPriority } from '../../tasks/types';
 import { ComputeProviderType, ComputeConfig } from '../../compute';
 import { getCurrentGitRepository } from '../utils/git';
 import { TaskRegistry, TaskDefinition } from '../utils/task-registry';
+import { ProviderFactory } from '../../services/compute/providers/provider-factory';
+import { AWSSetupHelper } from '../../utils/aws-setup-helper';
 
 export interface RunOptions {
   repo?: string;
@@ -30,6 +32,7 @@ export interface RunOptions {
   sessionId?: string;
   // Compute provider options
   provider?: string;
+  awsMode?: string;  // For AWS backend: 'ec2', 'ecs', 'shared'
   ec2InstanceType?: string;
   ec2Spot?: boolean;
   ec2Region?: string;
@@ -42,6 +45,11 @@ export async function runCommand(taskId: string, options: RunOptions): Promise<v
     const configManagerV2 = new ConfigManagerV2();
     const authManager = new AuthManager(configManager);
     const taskRegistry = new TaskRegistry();
+    
+    // Initialize the singleton Config with values from ConfigManagerV2
+    const { Config } = await import('../../utils/config');
+    const mergedConfig = configManagerV2.getMergedConfig();
+    Config.initialize(mergedConfig);
     
     // Check authentication
     const token = await authManager.getGitHubToken();
@@ -117,7 +125,8 @@ export async function runCommand(taskId: string, options: RunOptions): Promise<v
           message: 'Default compute provider:',
           choices: [
             { name: 'GitHub Codespaces', value: 'codespace' },
-            { name: 'AWS EC2', value: 'ec2' },
+            { name: 'Amazon Web Services (AWS)', value: 'aws' },
+            { name: 'Fly.io (Edge Computing)', value: 'fly' },
           ],
           default: configManagerV2.getDefaultBackend(),
         },
@@ -144,6 +153,50 @@ export async function runCommand(taskId: string, options: RunOptions): Promise<v
           },
         ]);
         defaultOptions = { ...defaultOptions, ...ec2Options };
+      } else if (taskDetails.provider === 'aws') {
+        const ecsOptions = await inquirer.prompt([
+          {
+            type: 'input',
+            name: 'instanceType',
+            message: 'EC2 instance type for ECS cluster:',
+            default: configManagerV2.get('ecs.instanceType') || 't3.medium',
+          },
+          {
+            type: 'input',
+            name: 'region',
+            message: 'AWS region:',
+            default: configManagerV2.get('ecs.region') || 'us-east-1',
+          },
+          {
+            type: 'confirm',
+            name: 'enableSpot',
+            message: 'Use spot instances for cost savings?',
+            default: true,
+          },
+        ]);
+        defaultOptions = { ...defaultOptions, ...ecsOptions };
+      } else if (taskDetails.provider === 'fly') {
+        const flyOptions = await inquirer.prompt([
+          {
+            type: 'list',
+            name: 'machineSize',
+            message: 'Fly.io machine size:',
+            choices: [
+              { name: 'Shared CPU 1x (256MB)', value: 'shared-cpu-1x' },
+              { name: 'Shared CPU 2x (512MB)', value: 'shared-cpu-2x' },
+              { name: 'Dedicated CPU 1x (2GB)', value: 'dedicated-cpu-1x' },
+              { name: 'Dedicated CPU 2x (4GB)', value: 'dedicated-cpu-2x' },
+            ],
+            default: 'shared-cpu-1x',
+          },
+          {
+            type: 'input',
+            name: 'region',
+            message: 'Fly.io region (iad, lhr, nrt, syd):',
+            default: 'iad',
+          },
+        ]);
+        defaultOptions = { ...defaultOptions, ...flyOptions };
       } else {
         const codespaceOptions = await inquirer.prompt([
           {
@@ -188,7 +241,7 @@ export async function runCommand(taskId: string, options: RunOptions): Promise<v
     const branch = options.branch || taskDef.branch || taskDef.defaultOptions?.branch;
     const timeout = options.timeout || taskDef.defaultOptions?.timeout?.toString() || '7200';
     const priority = (options.priority as TaskPriority) || (taskDef.defaultOptions?.priority as TaskPriority) || 'normal';
-    const provider = (options.provider as ComputeProviderType) || 
+    const provider = options.provider || 
                      taskDef.defaultOptions?.provider || 
                      configManagerV2.getDefaultBackend();
     
@@ -235,8 +288,124 @@ export async function runCommand(taskId: string, options: RunOptions): Promise<v
       const sessionId = options.sessionId || `interactive-${Date.now()}`;
       console.log(chalk.gray(`Session ID: ${sessionId}`));
       
-      if (computeConfig.provider === ComputeProviderType.EC2) {
-        // EC2 Interactive mode
+      // Get the appropriate provider based on user selection
+      let providerName = provider;
+      
+      // Handle unified AWS backend
+      if (provider === 'aws') {
+        providerName = 'aws';
+        const awsMode = configManagerV2.getAWSMode();
+        console.log(chalk.gray(`AWS mode: ${awsMode}`));
+      }
+      
+      // Check if using AWS provider and needs setup
+      if (providerName === 'aws') {
+        const hasCredentials = await AWSSetupHelper.checkAWSCredentials();
+        if (!hasCredentials) {
+          AWSSetupHelper.showSetupInstructions();
+          AWSSetupHelper.suggestAlternatives();
+          process.exit(1);
+        }
+      }
+      
+      // Initialize provider factory
+      try {
+        await ProviderFactory.initialize();
+      } catch (error) {
+        console.error(chalk.red('❌ Failed to initialize compute providers'));
+        console.error(chalk.gray('Error:'), (error as Error).message);
+        
+        if (providerName.includes('ec2') || providerName.includes('ecs')) {
+          console.log(chalk.yellow('\n⚠️  This might be due to AWS configuration issues.'));
+          AWSSetupHelper.suggestAlternatives();
+        }
+        process.exit(1);
+      }
+      
+      if (providerName === 'aws' || providerName === 'fly') {
+        // Use new provider system
+        // Use provider name directly
+        const factoryProviderName = providerName;
+        const computeProvider = await ProviderFactory.getProvider(factoryProviderName);
+        
+        console.log(chalk.gray(`Provider: ${providerName}`));
+        
+        // Create session with the new provider
+        const session = await computeProvider.createSession({
+          taskId: sessionId,
+          userId: 'cli-user', // TODO: Get from auth
+          repository,
+          branch,
+          resources: {
+            cpu: options.machineType || taskDef.defaultOptions?.ec2InstanceType || taskDef.defaultOptions?.machineType || undefined,
+            memory: '4GB', // TODO: Make configurable
+            disk: '50GB', // TODO: Make configurable
+          }
+        });
+        
+        console.log(chalk.green('✅ Session created!'));
+        console.log(chalk.gray(`Session ID: ${session.id}`));
+        console.log(chalk.gray(`Status: ${session.status}`));
+        
+        if (session.metadata) {
+          Object.entries(session.metadata).forEach(([key, value]) => {
+            console.log(chalk.gray(`${key}: ${value}`));
+          });
+        }
+        
+        // Install Claude Code
+        console.log(chalk.blue('📦 Installing Claude Code...'));
+        await computeProvider.executeCommand(session.id, 'sudo npm install -g @anthropic-ai/claude-code');
+        
+        // Clone repository
+        console.log(chalk.blue('📂 Cloning repository...'));
+        await computeProvider.executeCommand(session.id, `git clone https://github.com/${repository}.git /workspace && cd /workspace && git checkout ${branch || 'main'}`);
+        
+        console.log(chalk.green('✅ Interactive session ready!'));
+        
+        // For now, show connection instructions
+        // TODO: Implement interactive connection based on provider type
+        if (providerName === 'aws') {
+          console.log(chalk.blue('🔗 To connect to your AWS ECS session:'));
+          console.log(chalk.gray('Use ECS Exec to connect to the container'));
+          console.log(chalk.gray(`aws ecs execute-command --cluster remote-claude --task ${session.metadata?.taskArn} --container claude-code --interactive --command "/bin/bash"`));
+        } else if (providerName === 'fly') {
+          console.log(chalk.blue('🔗 To connect to your Fly.io session:'));
+          console.log(chalk.gray('Use Fly SSH to connect'));
+          console.log(chalk.gray(`fly ssh console -a ${session.metadata?.appName}`));
+        }
+        
+        // Wait for user to exit
+        console.log(chalk.yellow('\nPress Ctrl+C to end the session...'));
+        
+        // Handle cleanup on exit
+        process.on('SIGINT', async () => {
+          console.log(chalk.yellow('\n📤 Interactive session ended'));
+          
+          const inquirer = await import('inquirer');
+          const { keepSession } = await inquirer.default.prompt([{
+            type: 'confirm',
+            name: 'keepSession',
+            message: `Keep the ${providerName} session running?`,
+            default: false,
+          }]);
+          
+          if (!keepSession) {
+            console.log(chalk.blue('🗑️  Terminating session...'));
+            await computeProvider.terminateSession(session.id);
+          } else {
+            console.log(chalk.green('✅ Session kept running:'), session.id);
+          }
+          
+          await ProviderFactory.shutdown();
+          process.exit(0);
+        });
+        
+        // Keep process running
+        await new Promise(() => {}); // Wait forever
+        
+      } else if ((computeConfig.provider as any) === 'ec2') {
+        // EC2 Interactive mode (existing implementation)
         const { EC2Provider } = await import('../../compute');
         const provider = new EC2Provider({
           ...computeConfig.ec2!,
@@ -379,8 +548,113 @@ export async function runCommand(taskId: string, options: RunOptions): Promise<v
     // Build compute configuration
     const computeConfig = buildComputeConfig(options, taskDef, configManagerV2);
     
-    // For EC2 non-interactive mode, we'll create the instance and connect automatically
-    if (provider === ComputeProviderType.EC2 && !options.notifyOnComplete) {
+    // Use provider directly
+    let effectiveProvider = provider;
+    
+    // For non-interactive mode with new providers
+    if ((effectiveProvider === 'aws' || effectiveProvider === 'fly') && !options.notifyOnComplete) {
+      
+      // Check if using AWS provider and needs setup
+      if (effectiveProvider === 'aws') {
+        const hasCredentials = await AWSSetupHelper.checkAWSCredentials();
+        if (!hasCredentials) {
+          AWSSetupHelper.showSetupInstructions();
+          AWSSetupHelper.suggestAlternatives();
+          process.exit(1);
+        }
+      }
+      
+      // Initialize provider factory
+      try {
+        await ProviderFactory.initialize();
+      } catch (error) {
+        console.error(chalk.red('❌ Failed to initialize compute providers'));
+        console.error(chalk.gray('Error:'), (error as Error).message);
+        
+        if (effectiveProvider === 'aws') {
+          console.log(chalk.yellow('\n⚠️  This might be due to AWS configuration issues.'));
+          AWSSetupHelper.suggestAlternatives();
+        }
+        process.exit(1);
+      }
+      
+      console.log(chalk.blue('🚀 Starting task execution with provider:'), chalk.gray(effectiveProvider));
+      
+      let computeProvider;
+      try {
+        // Use provider name directly
+        const factoryProviderName = effectiveProvider;
+        computeProvider = await ProviderFactory.getProvider(factoryProviderName);
+      } catch (error) {
+        console.error(chalk.red('❌ Provider not available:'), effectiveProvider);
+        console.error(chalk.gray('Error:'), (error as Error).message);
+        
+        if (effectiveProvider === 'aws') {
+          console.log(chalk.yellow('\n⚠️  The AWS infrastructure may not be properly set up.'));
+          console.log(chalk.blue('To deploy AWS infrastructure:'));
+          console.log(chalk.white('  rclaude init-deployment --mode self-hosted'));
+        }
+        
+        AWSSetupHelper.suggestAlternatives();
+        process.exit(1);
+      }
+      
+      // Create session for task execution
+      const session = await computeProvider.createSession({
+        taskId,
+        userId: 'cli-user',
+        repository,
+        branch,
+        resources: {
+          cpu: options.machineType || taskDef.defaultOptions?.ec2InstanceType || taskDef.defaultOptions?.machineType || undefined,
+          memory: '4GB',
+          disk: '50GB',
+        }
+      });
+      
+      console.log(chalk.green('✅ Session created!'));
+      console.log(chalk.gray(`Session ID: ${session.id}`));
+      
+      // Install Claude Code
+      console.log(chalk.blue('📦 Installing Claude Code...'));
+      await computeProvider.executeCommand(session.id, 'sudo npm install -g @anthropic-ai/claude-code');
+      
+      // Clone repository
+      console.log(chalk.blue('📂 Cloning repository...'));
+      await computeProvider.executeCommand(session.id, `git clone https://github.com/${repository}.git /workspace && cd /workspace && git checkout ${branch || 'main'}`);
+      
+      // Execute the task
+      console.log(chalk.blue('🤖 Executing Claude Code task...'));
+      console.log(chalk.gray(`Task: ${taskDef.description}`));
+      
+      const result = await computeProvider.executeCommand(session.id, `cd /workspace && claude "${taskDef.description}"`);
+      
+      if (result.success) {
+        console.log(chalk.green('✅ Task completed successfully!'));
+        if (result.output) {
+          console.log(chalk.gray('Output:'), result.output);
+        }
+      } else {
+        console.log(chalk.red('❌ Task failed'));
+        if (result.error) {
+          console.log(chalk.red('Error:'), result.error);
+        }
+      }
+      
+      if (options.autoCommit || options.pullRequest) {
+        console.log(chalk.blue('🔄 Processing changes...'));
+        // TODO: Handle auto-commit and PR creation
+      }
+      
+      console.log(chalk.blue('🗑️  Terminating session...'));
+      await computeProvider.terminateSession(session.id);
+      
+      await ProviderFactory.shutdown();
+      process.exit(result.success ? 0 : 1);
+    }
+    
+    // For EC2 non-interactive mode (existing implementation)
+    if ((effectiveProvider as any) === 'ec2' && !options.notifyOnComplete) {
       console.log(chalk.blue('🚀 Starting EC2 instance for task execution...'));
       
       const { EC2Provider } = await import('../../compute');
@@ -496,12 +770,13 @@ export async function runCommand(taskId: string, options: RunOptions): Promise<v
  * Build compute configuration from CLI options, task defaults, and config
  */
 function buildComputeConfig(options: RunOptions, taskDef: TaskDefinition, configManager: ConfigManagerV2): ComputeConfig {
-  const provider = (options.provider?.toLowerCase() as ComputeProviderType) || 
-                   (taskDef.defaultOptions?.provider as ComputeProviderType) || 
+  const provider = options.provider?.toLowerCase() || 
+                   taskDef.defaultOptions?.provider || 
                    configManager.getDefaultBackend();
 
   switch (provider) {
     case ComputeProviderType.CODESPACE:
+    case 'codespace':
       return {
         provider: ComputeProviderType.CODESPACE,
         codespace: {
@@ -517,9 +792,9 @@ function buildComputeConfig(options: RunOptions, taskDef: TaskDefinition, config
         }
       };
 
-    case ComputeProviderType.EC2:
+    case 'ec2':
       return {
-        provider: ComputeProviderType.EC2,
+        provider: 'ec2' as any,
         ec2: {
           region: options.ec2Region || 
                   taskDef.defaultOptions?.ec2Region || 
@@ -546,6 +821,44 @@ function buildComputeConfig(options: RunOptions, taskDef: TaskDefinition, config
         }
       };
 
+    case ComputeProviderType.AWS:
+    case 'aws':
+      // Handle unified AWS backend
+      const awsMode = options.awsMode || configManager.getAWSMode();
+      
+      // Map AWS mode to specific provider
+      let mappedProvider: string;
+      switch (awsMode) {
+        case 'ec2':
+          // Use the existing EC2 provider configuration
+          return buildComputeConfig({ ...options, provider: 'ec2' }, taskDef, configManager);
+        case 'ecs':
+          mappedProvider = 'aws';
+          break;
+        default:
+          mappedProvider = 'aws'; // Default to ECS
+      }
+      
+      return {
+        provider: mappedProvider as any,
+        // Include AWS-specific configuration
+        aws: {
+          mode: awsMode,
+          region: configManager.get('aws.region') || 'us-east-1',
+        },
+        ...taskDef.defaultOptions,
+      };
+
+    case ComputeProviderType.FLY:
+    case 'fly':
+      // For legacy providers, we'll use a simplified config structure
+      // The provider factory will handle the specific configurations
+      return {
+        provider: provider as any, // These are new provider types
+        // Include any provider-specific options from task defaults
+        ...taskDef.defaultOptions,
+      };
+
     default:
       throw new Error(`Unsupported provider: ${provider}`);
   }
@@ -567,7 +880,8 @@ export function createRunCommand(): Command {
     .option('--no-persistent', 'Disable persistent session setup')
     .option('--idle-timeout <minutes>', 'Codespace idle timeout in minutes (30-1440)', (val) => parseInt(val))
     .option('--machine-type <type>', 'Codespace machine type (basicLinux32gb, standardLinux32gb, premiumLinux)', 'basicLinux32gb')
-    .option('--provider <type>', 'Compute provider (codespace, ec2)', 'codespace')
+    .option('--provider <type>', 'Compute provider (codespace, aws, fly)')
+    .option('--aws-mode <mode>', 'AWS deployment mode (ec2, ecs, shared)')
     .option('--ec2-instance-type <type>', 'EC2 instance type (t3.medium, c5.xlarge, etc.)')
     .option('--ec2-spot', 'Use EC2 spot instances for cost savings')
     .option('--ec2-region <region>', 'EC2 region (us-east-1, us-west-2, etc.)')

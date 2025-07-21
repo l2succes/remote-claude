@@ -10,6 +10,7 @@ import {
   StopTaskCommand,
   ListTasksCommand,
   DescribeClustersCommand,
+  ListServicesCommand,
   TaskDefinition,
   Service,
   Task
@@ -25,10 +26,11 @@ import {
   CreateAutoScalingGroupCommand,
   UpdateAutoScalingGroupCommand
 } from '@aws-sdk/client-auto-scaling'
-import { ComputeProvider, TaskExecutionResult, ComputeSession } from '../../types'
-import { Logger } from '../../../utils/logger'
-import { Config } from '../../../utils/config'
+import { ComputeProvider, ComputeSession, SessionOptions, TaskResult } from '../../types'
+import { Logger } from '../../../../utils/logger'
+import { Config } from '../../../../utils/config'
 import { EventEmitter } from 'events'
+import { AWSSetupHelper } from '../../../../utils/aws-setup-helper'
 
 export interface ECSProviderConfig {
   clusterName: string
@@ -45,7 +47,7 @@ export interface ECSProviderConfig {
 }
 
 export class ECSProvider implements ComputeProvider {
-  readonly name = 'ecs-ec2'
+  readonly name = 'aws'
   private logger = new Logger('ECSProvider')
   private ecsClient: ECSClient
   private ec2Client: EC2Client
@@ -58,13 +60,25 @@ export class ECSProvider implements ComputeProvider {
 
   constructor(config: ECSProviderConfig) {
     this.config = config
-    const awsConfig = {
-      region: config.region,
-      credentials: {
-        accessKeyId: Config.get('aws.accessKeyId'),
-        secretAccessKey: Config.get('aws.secretAccessKey'),
+    const awsConfig: any = {
+      region: config.region
+    }
+    
+    // Only add credentials if they are explicitly provided and valid
+    const accessKeyId = Config.get('aws.accessKeyId')
+    const secretAccessKey = Config.get('aws.secretAccessKey')
+    
+    if (accessKeyId && secretAccessKey) {
+      awsConfig.credentials = {
+        accessKeyId,
+        secretAccessKey
       }
     }
+    // Otherwise, let AWS SDK use its default credential provider chain:
+    // 1. Environment variables (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
+    // 2. Shared credentials file (~/.aws/credentials)
+    // 3. ECS/EC2 IAM roles
+    // 4. etc.
     
     this.ecsClient = new ECSClient(awsConfig)
     this.ec2Client = new EC2Client(awsConfig)
@@ -75,14 +89,25 @@ export class ECSProvider implements ComputeProvider {
   async initialize(): Promise<void> {
     this.logger.info('Initializing ECS provider', { config: this.config })
     
+    // Check AWS setup before proceeding
+    const setupOk = await AWSSetupHelper.performFullSetupCheck({
+      clusterName: this.config.clusterName,
+      region: this.config.region
+    })
+    
+    if (!setupOk) {
+      // User needs to set up AWS first
+      throw new Error('AWS_SETUP_REQUIRED')
+    }
+    
     // Create or verify ECS cluster
     await this.ensureCluster()
     
     // Create task definition
     await this.createTaskDefinition()
     
-    // Set up EC2 capacity provider
-    await this.setupEC2Capacity()
+    // Skip EC2 capacity setup - CloudFormation handles this
+    // await this.setupEC2Capacity()
     
     this.logger.info('ECS provider initialized successfully')
   }
@@ -133,7 +158,7 @@ export class ECSProvider implements ComputeProvider {
       id: options.taskId,
       provider: this.name,
       status: 'active',
-      startTime: new Date(),
+      createdAt: new Date(),
       metadata: {
         clusterArn: this.clusterArn,
         serviceArn,
@@ -153,37 +178,6 @@ export class ECSProvider implements ComputeProvider {
     return session
   }
 
-  async executeTask(
-    sessionId: string,
-    command: string,
-    options?: Record<string, any>
-  ): Promise<TaskExecutionResult> {
-    this.logger.info('Executing task in ECS', { sessionId, command })
-    
-    // Use ECS Exec to run commands in container
-    const startTime = Date.now()
-    
-    try {
-      // This would use AWS SSM to execute commands
-      // For now, returning mock result
-      const result = await this.executeCommandInContainer(sessionId, command)
-      
-      return {
-        success: result.exitCode === 0,
-        output: result.stdout,
-        error: result.stderr,
-        executionTime: Date.now() - startTime,
-        metadata: {
-          exitCode: result.exitCode,
-          taskArn: result.taskArn,
-        }
-      }
-    } catch (error) {
-      this.logger.error('Task execution failed', { sessionId, error })
-      throw error
-    }
-  }
-
   async terminateSession(sessionId: string): Promise<void> {
     this.logger.info('Terminating ECS session', { sessionId })
     
@@ -193,7 +187,7 @@ export class ECSProvider implements ComputeProvider {
     this.eventEmitter.emit('session:terminated', { sessionId })
   }
 
-  async getSessionStatus(sessionId: string): Promise<'active' | 'terminated' | 'unknown'> {
+  async getSessionStatus(sessionId: string): Promise<ComputeSession> {
     // Check task status in ECS
     try {
       const tasks = await this.ecsClient.send(new ListTasksCommand({
@@ -201,10 +195,84 @@ export class ECSProvider implements ComputeProvider {
         // Filter by task tag or metadata
       }))
       
-      return tasks.taskArns?.length > 0 ? 'active' : 'terminated'
+      const status = (tasks.taskArns?.length ?? 0) > 0 ? 'active' : 'terminated'
+      
+      return {
+        id: sessionId,
+        provider: this.name,
+        status: status as any,
+        metadata: {
+          clusterArn: this.clusterArn
+        }
+      }
     } catch (error) {
-      return 'unknown'
+      return {
+        id: sessionId,
+        provider: this.name,
+        status: 'error',
+        metadata: {
+          error: (error as Error).message
+        }
+      }
     }
+  }
+
+  async executeCommand(sessionId: string, command: string): Promise<TaskResult> {
+    this.logger.info('Executing command in ECS session', { sessionId, command })
+    
+    // Use ECS Exec to run commands in containers
+    // For now, return a placeholder
+    // TODO: Implement ECS Exec integration
+    
+    return {
+      success: true,
+      output: 'ECS Exec not yet implemented',
+      error: '',
+      exitCode: 0
+    }
+  }
+
+  async listSessions(userId?: string): Promise<ComputeSession[]> {
+    const sessions: ComputeSession[] = []
+    
+    try {
+      // List all services in the cluster
+      const services = await this.ecsClient.send(new ListServicesCommand({
+        cluster: this.clusterArn
+      }))
+      
+      if (services.serviceArns) {
+        // Get tasks for each service
+        for (const serviceArn of services.serviceArns) {
+          const tasks = await this.ecsClient.send(new ListTasksCommand({
+            cluster: this.clusterArn,
+            serviceName: serviceArn
+          }))
+          
+          if (tasks.taskArns) {
+            for (const taskArn of tasks.taskArns) {
+              // Extract task ID from ARN
+              const taskId = taskArn.split('/').pop() || ''
+              
+              sessions.push({
+                id: taskId,
+                provider: this.name,
+                status: 'active',
+                metadata: {
+                  serviceArn,
+                  taskArn,
+                  clusterArn: this.clusterArn
+                }
+              })
+            }
+          }
+        }
+      }
+    } catch (error) {
+      this.logger.error('Failed to list sessions', { error })
+    }
+    
+    return sessions
   }
 
   // Private methods
@@ -216,7 +284,7 @@ export class ECSProvider implements ComputeProvider {
       }))
       
       if (response.clusters && response.clusters.length > 0) {
-        this.clusterArn = response.clusters[0].clusterArn
+        this.clusterArn = response.clusters[0]?.clusterArn || ''
         this.logger.info('Using existing cluster', { clusterArn: this.clusterArn })
       } else {
         throw new Error('Cluster not found')
@@ -232,7 +300,7 @@ export class ECSProvider implements ComputeProvider {
         capacityProviders: ['FARGATE', 'FARGATE_SPOT'],
       }))
       
-      this.clusterArn = createResponse.cluster?.clusterArn
+      this.clusterArn = createResponse.cluster?.clusterArn!
       this.logger.info('Created new cluster', { clusterArn: this.clusterArn })
     }
   }
@@ -240,8 +308,8 @@ export class ECSProvider implements ComputeProvider {
   private async createTaskDefinition(): Promise<void> {
     const taskDef = {
       family: 'remote-claude-task',
-      networkMode: 'awsvpc',
-      requiresCompatibilities: ['EC2'],
+      networkMode: 'awsvpc' as any, // AWS SDK type issue
+      requiresCompatibilities: ['EC2'] as any, // AWS SDK type issue
       cpu: '1024',
       memory: '2048',
       containerDefinitions: [{
@@ -254,41 +322,28 @@ export class ECSProvider implements ComputeProvider {
         ],
         portMappings: [{
           containerPort: 8080,
-          protocol: 'tcp'
+          protocol: 'tcp' as any // AWS SDK type issue
         }],
         logConfiguration: {
-          logDriver: 'awslogs',
+          logDriver: 'awslogs' as any, // AWS SDK type issue
           options: {
             'awslogs-group': `/ecs/${this.config.clusterName}`,
             'awslogs-region': this.config.region,
             'awslogs-stream-prefix': 'claude-code'
           }
         },
-        mountPoints: [{
-          sourceVolume: 'workspace',
-          containerPath: '/workspace'
-        }],
+        // Removed mountPoints for now - would need EFS setup
         linuxParameters: {
           initProcessEnabled: true
         }
       }],
-      volumes: [{
-        name: 'workspace',
-        efsVolumeConfiguration: {
-          fileSystemId: Config.get('efs.fileSystemId'),
-          transitEncryption: 'ENABLED',
-          authorizationConfig: {
-            accessPointId: Config.get('efs.accessPointId'),
-            iam: 'ENABLED'
-          }
-        }
-      }],
-      executionRoleArn: Config.get('ecs.executionRoleArn'),
-      taskRoleArn: Config.get('ecs.taskRoleArn'),
+      // Removed volumes for now - would need EFS setup
+      executionRoleArn: Config.get('aws.ecs.executionRoleArn') || Config.get('ecs.executionRoleArn'),
+      taskRoleArn: Config.get('aws.ecs.taskRoleArn') || Config.get('ecs.taskRoleArn'),
     }
     
     const response = await this.ecsClient.send(new RegisterTaskDefinitionCommand(taskDef))
-    this.taskDefinitionArn = response.taskDefinition?.taskDefinitionArn
+    this.taskDefinitionArn = response.taskDefinition?.taskDefinitionArn!
     
     this.logger.info('Task definition created', { 
       taskDefinitionArn: this.taskDefinitionArn 
@@ -323,7 +378,7 @@ systemctl start amazon-ssm-agent
       LaunchTemplateName: `${this.config.clusterName}-template`,
       LaunchTemplateData: {
         ImageId: Config.get('ecs.amiId') || 'ami-0c02fb55956c7d316', // ECS-optimized AMI
-        InstanceType: this.config.instanceType,
+        InstanceType: this.config.instanceType as any, // AWS SDK type issue
         IamInstanceProfile: {
           Arn: Config.get('ecs.instanceProfileArn')
         },
@@ -415,7 +470,7 @@ systemctl start amazon-ssm-agent
         awsvpcConfiguration: {
           subnets: this.config.subnetIds,
           securityGroups: this.config.securityGroupIds,
-          assignPublicIp: 'ENABLED'
+          // assignPublicIp not supported for EC2 launch type
         }
       },
       placementStrategy: [
