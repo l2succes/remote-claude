@@ -1,7 +1,5 @@
 # Self-Hosted Remote Claude Web Design
 
-# Self-Hosted Remote Claude Web Design
-
 This document outlines the architecture and implementation plan for a self-hosted web version of Remote Claude that provides Claude Code instances through a web interface.
 
 ## Overview
@@ -112,7 +110,207 @@ interface APIEndpoints {
 }
 ```
 
-### 3. Container Orchestration
+### 3. Remote Claude Agent
+
+**Purpose:**
+A lightweight agent that runs inside containers/VMs to provide WebSocket-based communication between the web UI and compute environments.
+
+**Technology Stack:**
+- Node.js runtime
+- WebSocket server for real-time communication
+- Claude Code SDK integration
+- Terminal multiplexing with node-pty
+- File system access APIs
+
+**Agent Architecture:**
+```typescript
+// packages/remote-claude-agent/src/index.ts
+import { WebSocketServer } from 'ws';
+import { Claude } from '@anthropic-ai/claude-code';
+import { Terminal } from 'node-pty';
+import { FileSystemManager } from './fs-manager';
+
+interface AgentMessage {
+  id: string;
+  type: 'execute' | 'claude' | 'terminal' | 'file' | 'stream';
+  payload: any;
+}
+
+class RemoteClaudeAgent {
+  private wss: WebSocketServer;
+  private claude: Claude;
+  private terminals: Map<string, Terminal> = new Map();
+  private sessions: Map<string, WebSocket> = new Map();
+  
+  async start(port: number = 8080) {
+    this.wss = new WebSocketServer({ port });
+    
+    this.wss.on('connection', (ws, req) => {
+      const sessionId = this.extractSessionId(req);
+      this.sessions.set(sessionId, ws);
+      
+      ws.on('message', async (data) => {
+        const msg: AgentMessage = JSON.parse(data.toString());
+        
+        switch (msg.type) {
+          case 'execute':
+            await this.handleExecute(ws, msg);
+            break;
+            
+          case 'claude':
+            await this.handleClaude(ws, msg);
+            break;
+            
+          case 'terminal':
+            this.handleTerminal(ws, msg);
+            break;
+            
+          case 'file':
+            await this.handleFileOperation(ws, msg);
+            break;
+        }
+      });
+      
+      ws.on('close', () => {
+        this.sessions.delete(sessionId);
+        this.cleanupSession(sessionId);
+      });
+    });
+  }
+  
+  private async handleClaude(ws: WebSocket, msg: AgentMessage) {
+    const { prompt, options } = msg.payload;
+    
+    try {
+      // Stream Claude responses
+      for await (const chunk of this.claude.query(prompt, options)) {
+        ws.send(JSON.stringify({
+          id: msg.id,
+          type: 'claude-stream',
+          payload: chunk
+        }));
+      }
+      
+      ws.send(JSON.stringify({
+        id: msg.id,
+        type: 'claude-complete',
+        payload: { success: true }
+      }));
+    } catch (error) {
+      ws.send(JSON.stringify({
+        id: msg.id,
+        type: 'error',
+        payload: { error: error.message }
+      }));
+    }
+  }
+}
+```
+
+**WebSocket Protocol:**
+```typescript
+// Message types from client to agent
+interface ClientMessages {
+  // Execute shell command
+  execute: {
+    command: string;
+    workingDirectory?: string;
+    env?: Record<string, string>;
+  };
+  
+  // Claude interaction
+  claude: {
+    prompt: string;
+    options?: {
+      model?: string;
+      maxTokens?: number;
+      temperature?: number;
+    };
+  };
+  
+  // Terminal operations
+  terminal: {
+    action: 'create' | 'write' | 'resize' | 'destroy';
+    terminalId?: string;
+    data?: string;
+    cols?: number;
+    rows?: number;
+  };
+  
+  // File operations
+  file: {
+    action: 'read' | 'write' | 'list' | 'delete' | 'mkdir';
+    path: string;
+    content?: string;
+    encoding?: string;
+  };
+}
+
+// Message types from agent to client
+interface AgentMessages {
+  // Command execution results
+  executeResult: {
+    stdout: string;
+    stderr: string;
+    exitCode: number;
+  };
+  
+  // Claude responses (streamed)
+  claudeStream: {
+    type: 'text' | 'code' | 'thinking';
+    content: string;
+  };
+  
+  // Terminal output
+  terminalData: {
+    terminalId: string;
+    data: string;
+  };
+  
+  // File operation results
+  fileResult: {
+    success: boolean;
+    data?: any;
+    error?: string;
+  };
+}
+```
+
+**Container Integration:**
+```dockerfile
+FROM node:20-slim
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    git \
+    build-essential \
+    python3 \
+    python3-pip \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Claude Code CLI globally
+RUN npm install -g @anthropic-ai/claude-code
+
+# Copy and install agent
+COPY packages/remote-claude-agent/package*.json ./
+RUN npm ci --production
+
+COPY packages/remote-claude-agent/dist ./dist
+
+# Create workspace directory
+RUN mkdir -p /workspace
+WORKDIR /workspace
+
+# Expose WebSocket port
+EXPOSE 8080
+
+# Start the agent
+CMD ["node", "/app/dist/index.js"]
+```
+
+### 4. Container Orchestration
 
 **Options:**
 
@@ -323,6 +521,105 @@ CREATE TABLE audit_logs (
     details JSONB,
     created_at TIMESTAMP DEFAULT NOW()
 );
+```
+
+## Web UI to Agent Communication
+
+### Connection Flow
+
+```typescript
+// In the web UI backend
+class SessionManager {
+  async connectToSession(sessionId: string, userId: string) {
+    // 1. Get task/container info from ECS/K8s
+    const taskInfo = await this.getTaskInfo(sessionId);
+    
+    // 2. Get private IP of the container
+    const privateIp = taskInfo.networkInterfaces[0].privateIpv4Address;
+    
+    // 3. Create WebSocket proxy connection
+    const agentUrl = `ws://${privateIp}:8080`;
+    const agentWs = new WebSocket(agentUrl);
+    
+    // 4. Proxy messages between client and agent
+    return this.createProxy(userId, agentWs);
+  }
+  
+  private createProxy(userId: string, agentWs: WebSocket) {
+    // Create a secure WebSocket endpoint for the client
+    const clientEndpoint = `/api/sessions/${userId}/ws`;
+    
+    // Proxy messages with authentication and filtering
+    this.wss.on('connection', (clientWs, req) => {
+      if (!this.authenticateRequest(req)) {
+        clientWs.close(1008, 'Unauthorized');
+        return;
+      }
+      
+      // Forward messages from client to agent
+      clientWs.on('message', (data) => {
+        const msg = JSON.parse(data);
+        // Add authentication/filtering here
+        agentWs.send(JSON.stringify(msg));
+      });
+      
+      // Forward messages from agent to client
+      agentWs.on('message', (data) => {
+        clientWs.send(data);
+      });
+    });
+  }
+}
+```
+
+### Security Considerations
+
+1. **Network Isolation**: Agent runs in private subnet, only accessible from backend
+2. **Authentication**: All WebSocket connections authenticated at the backend
+3. **Message Filtering**: Backend validates and filters messages before forwarding
+4. **Rate Limiting**: Prevent abuse of compute resources
+5. **Audit Logging**: Track all operations for compliance
+
+### Frontend Integration
+
+```typescript
+// In the React frontend
+import { useWebSocket } from '@/hooks/useWebSocket';
+
+function ClaudeSession({ sessionId }: { sessionId: string }) {
+  const { send, subscribe, connected } = useWebSocket(
+    `/api/sessions/${sessionId}/ws`
+  );
+  
+  const [messages, setMessages] = useState<Message[]>([]);
+  
+  useEffect(() => {
+    const unsubscribe = subscribe('claude-stream', (data) => {
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: data.content,
+        type: data.type
+      }]);
+    });
+    
+    return unsubscribe;
+  }, [subscribe]);
+  
+  const sendPrompt = (prompt: string) => {
+    send({
+      id: generateId(),
+      type: 'claude',
+      payload: { prompt }
+    });
+  };
+  
+  return (
+    <div className="claude-session">
+      <MessageList messages={messages} />
+      <PromptInput onSubmit={sendPrompt} />
+    </div>
+  );
+}
 ```
 
 ## Implementation Phases

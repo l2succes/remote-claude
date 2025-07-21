@@ -33,9 +33,14 @@ export async function configBackendCommand(backend?: string, options?: BackendOp
             short: 'Codespaces',
           },
           {
-            name: 'AWS EC2 - Scalable cloud compute instances',
-            value: 'ec2',
-            short: 'EC2',
+            name: 'Amazon Web Services (AWS) - EC2, ECS, and more',
+            value: 'aws',
+            short: 'AWS',
+          },
+          {
+            name: 'Fly.io - Edge computing (coming soon)',
+            value: 'fly',
+            disabled: true,
           },
           {
             name: 'Local - Run on this machine (coming soon)',
@@ -50,13 +55,14 @@ export async function configBackendCommand(backend?: string, options?: BackendOp
     }
     
     // Validate backend
-    if (!selectedBackend || !['codespace', 'ec2', 'local'].includes(selectedBackend)) {
-      console.error(chalk.red('❌ Invalid backend. Choose from: codespace, ec2'));
+    const validBackends = ['codespace', 'aws', 'fly', 'local'];
+    if (!selectedBackend || !validBackends.includes(selectedBackend)) {
+      console.error(chalk.red('❌ Invalid backend. Choose from: codespace, aws, fly'));
       process.exit(1);
     }
     
     // Set the backend
-    await configManager.configureBackend(selectedBackend as 'codespace' | 'ec2' | 'local', scope);
+    await configManager.configureBackend(selectedBackend as 'codespace' | 'aws' | 'fly' | 'local', scope);
     
     // Show backend-specific configuration options
     console.log();
@@ -96,16 +102,42 @@ export async function configBackendCommand(backend?: string, options?: BackendOp
         
         await configManager.configureGitHub(codespaceConfig, scope);
       }
-    } else if (selectedBackend === 'ec2') {
-      const { configureEC2 } = await inquirer.prompt([{
+    } else if (selectedBackend === 'aws') {
+      const { configureAWS } = await inquirer.prompt([{
         type: 'confirm',
-        name: 'configureEC2',
-        message: 'Would you like to configure AWS EC2 settings?',
+        name: 'configureAWS',
+        message: 'Would you like to configure AWS settings?',
         default: true,
       }]);
       
-      if (configureEC2) {
-        const ec2Config = await inquirer.prompt([
+      if (configureAWS) {
+        // First, select AWS mode
+        const { awsMode } = await inquirer.prompt([{
+          type: 'list',
+          name: 'awsMode',
+          message: 'Select AWS deployment mode:',
+          choices: [
+            {
+              name: 'EC2 Instances - Simple VMs, one per task',
+              value: 'ec2',
+              short: 'EC2',
+            },
+            {
+              name: 'ECS Containers - Scalable container orchestration (recommended)',
+              value: 'ecs',
+              short: 'ECS',
+            },
+            {
+              name: 'Fargate - Serverless containers (coming soon)',
+              value: 'fargate',
+              disabled: true,
+            },
+          ],
+          default: configManager.getAWSMode(),
+        }]);
+        
+        // Common AWS settings
+        const commonConfig = await inquirer.prompt([
           {
             type: 'list',
             name: 'region',
@@ -120,65 +152,116 @@ export async function configBackendCommand(backend?: string, options?: BackendOp
               { name: 'Asia Pacific (Tokyo)', value: 'ap-northeast-1' },
               { name: 'Asia Pacific (Singapore)', value: 'ap-southeast-1' },
             ],
-            default: configManager.get('ec2.region') || 'us-east-1',
-          },
-          {
-            type: 'list',
-            name: 'instanceType',
-            message: 'Default instance type:',
-            choices: [
-              { name: 't3.micro (1 vCPU, 1GB RAM) - Free tier', value: 't3.micro' },
-              { name: 't3.small (2 vCPU, 2GB RAM)', value: 't3.small' },
-              { name: 't3.medium (2 vCPU, 4GB RAM)', value: 't3.medium' },
-              { name: 't3.large (2 vCPU, 8GB RAM)', value: 't3.large' },
-              { name: 'c5.large (2 vCPU, 4GB RAM) - Compute optimized', value: 'c5.large' },
-              { name: 'c5.xlarge (4 vCPU, 8GB RAM) - Compute optimized', value: 'c5.xlarge' },
-            ],
-            default: configManager.get('ec2.instanceType') || 't3.medium',
-          },
-          {
-            type: 'confirm',
-            name: 'spotInstance',
-            message: 'Use spot instances for cost savings?',
-            default: configManager.get('ec2.spotInstance') || false,
-          },
-          {
-            type: 'number',
-            name: 'idleTimeout',
-            message: 'Idle timeout before auto-termination (minutes):',
-            default: configManager.get('ec2.idleTimeout') || 60,
-            validate: (input) => {
-              const num = parseInt(input);
-              return (num >= 5 && num <= 1440) || 'Timeout must be between 5 and 1440 minutes';
-            },
+            default: configManager.get('aws.region') || configManager.get('ec2.region') || configManager.get('ecs.region') || 'us-east-1',
           },
         ]);
         
-        await configManager.configureEC2(ec2Config, scope);
+        let modeConfig: any = {};
         
-        // Show cost estimate
-        console.log();
-        console.log(chalk.blue('💰 Estimated Costs:'));
-        const instanceType = ec2Config.instanceType;
-        const costs: Record<string, { onDemand: number; spot: number }> = {
-          't3.micro': { onDemand: 0.0104, spot: 0.0031 },
-          't3.small': { onDemand: 0.0208, spot: 0.0062 },
-          't3.medium': { onDemand: 0.0416, spot: 0.0125 },
-          't3.large': { onDemand: 0.0832, spot: 0.025 },
-          'c5.large': { onDemand: 0.085, spot: 0.0323 },
-          'c5.xlarge': { onDemand: 0.17, spot: 0.0646 },
+        // Mode-specific configuration
+        if (awsMode === 'ec2') {
+          modeConfig = await inquirer.prompt([
+            {
+              type: 'list',
+              name: 'instanceType',
+              message: 'Default instance type:',
+              choices: [
+                { name: 't3.micro (1 vCPU, 1GB RAM) - Free tier', value: 't3.micro' },
+                { name: 't3.small (2 vCPU, 2GB RAM)', value: 't3.small' },
+                { name: 't3.medium (2 vCPU, 4GB RAM)', value: 't3.medium' },
+                { name: 't3.large (2 vCPU, 8GB RAM)', value: 't3.large' },
+                { name: 'c5.large (2 vCPU, 4GB RAM) - Compute optimized', value: 'c5.large' },
+                { name: 'c5.xlarge (4 vCPU, 8GB RAM) - Compute optimized', value: 'c5.xlarge' },
+              ],
+              default: configManager.get('aws.ec2.instanceType') || configManager.get('ec2.instanceType') || 't3.medium',
+            },
+            {
+              type: 'confirm',
+              name: 'spotInstance',
+              message: 'Use spot instances for cost savings?',
+              default: configManager.get('aws.ec2.spotInstance') || configManager.get('ec2.spotInstance') || false,
+            },
+            {
+              type: 'number',
+              name: 'idleTimeout',
+              message: 'Idle timeout before auto-termination (minutes):',
+              default: configManager.get('aws.ec2.idleTimeout') || configManager.get('ec2.idleTimeout') || 60,
+              validate: (input) => {
+                const num = parseInt(input);
+                return (num >= 5 && num <= 1440) || 'Timeout must be between 5 and 1440 minutes';
+              },
+            },
+          ]);
+        } else if (awsMode === 'ecs') {
+          console.log(chalk.yellow('\n⚠️  Note: ECS requires running "rclaude init-deployment" first to create the infrastructure.'));
+          
+          modeConfig = await inquirer.prompt([
+            {
+              type: 'input',
+              name: 'clusterName',
+              message: 'ECS Cluster name:',
+              default: configManager.get('aws.ecs.clusterName') || configManager.get('ecs.clusterName') || 'remote-claude-cluster',
+            },
+            {
+              type: 'list',
+              name: 'instanceType',
+              message: 'Default instance type for ECS cluster:',
+              choices: [
+                { name: 't3.small (2 vCPU, 2GB RAM)', value: 't3.small' },
+                { name: 't3.medium (2 vCPU, 4GB RAM) - Recommended', value: 't3.medium' },
+                { name: 't3.large (2 vCPU, 8GB RAM)', value: 't3.large' },
+                { name: 'c5.large (2 vCPU, 4GB RAM) - Compute optimized', value: 'c5.large' },
+              ],
+              default: configManager.get('aws.ecs.instanceType') || configManager.get('ecs.instanceType') || 't3.medium',
+            },
+          ]);
+        }
+        
+        // Save configuration
+        const awsConfig: any = {
+          mode: awsMode,
+          region: commonConfig.region,
         };
         
-        const cost = costs[instanceType] || { onDemand: 0, spot: 0 };
-        const hourlyRate = ec2Config.spotInstance ? cost.spot : cost.onDemand;
+        if (awsMode === 'ec2') {
+          awsConfig.ec2 = modeConfig;
+        } else if (awsMode === 'ecs') {
+          awsConfig.ecs = modeConfig;
+        }
         
-        console.log(chalk.gray(`Instance: ${instanceType}`));
-        console.log(chalk.gray(`Hourly rate: $${hourlyRate.toFixed(4)}/hour`));
-        console.log(chalk.gray(`Daily cost (8 hours): $${(hourlyRate * 8).toFixed(2)}`));
-        console.log(chalk.gray(`Monthly cost (160 hours): $${(hourlyRate * 160).toFixed(2)}`));
+        await configManager.configureAWS(awsConfig, scope);
         
-        if (ec2Config.spotInstance) {
-          console.log(chalk.green(`Savings with spot: ~${Math.round((1 - cost.spot / cost.onDemand) * 100)}%`));
+        // Show cost estimate for EC2 mode
+        if (awsMode === 'ec2' && modeConfig.instanceType) {
+          console.log();
+          console.log(chalk.blue('💰 Estimated Costs (per instance):'));
+          const costs: Record<string, { onDemand: number; spot: number }> = {
+            't3.micro': { onDemand: 0.0104, spot: 0.0031 },
+            't3.small': { onDemand: 0.0208, spot: 0.0062 },
+            't3.medium': { onDemand: 0.0416, spot: 0.0125 },
+            't3.large': { onDemand: 0.0832, spot: 0.025 },
+            'c5.large': { onDemand: 0.085, spot: 0.0323 },
+            'c5.xlarge': { onDemand: 0.17, spot: 0.0646 },
+          };
+          
+          const cost = costs[modeConfig.instanceType] || { onDemand: 0, spot: 0 };
+          const hourlyRate = modeConfig.spotInstance ? cost.spot : cost.onDemand;
+          
+          console.log(chalk.gray(`Instance: ${modeConfig.instanceType}`));
+          console.log(chalk.gray(`Hourly rate: $${hourlyRate.toFixed(4)}/hour`));
+          console.log(chalk.gray(`Daily cost (8 hours): $${(hourlyRate * 8).toFixed(2)}`));
+          console.log(chalk.gray(`Monthly cost (160 hours): $${(hourlyRate * 160).toFixed(2)}`));
+          
+          if (modeConfig.spotInstance) {
+            console.log(chalk.green(`Savings with spot: ~${Math.round((1 - cost.spot / cost.onDemand) * 100)}%`));
+          }
+        }
+        
+        // Show deployment instructions for ECS
+        if (awsMode === 'ecs') {
+          console.log();
+          console.log(chalk.blue('📦 To deploy ECS infrastructure:'));
+          console.log(chalk.gray('  rclaude init-deployment --mode self-hosted'));
         }
       }
     }
@@ -192,7 +275,9 @@ export async function configBackendCommand(backend?: string, options?: BackendOp
     console.log();
     console.log(chalk.blue('To override for a specific task:'));
     console.log(chalk.gray('  rclaude run <task-id> --provider codespace'));
-    console.log(chalk.gray('  rclaude run <task-id> --provider ec2'));
+    console.log(chalk.gray('  rclaude run <task-id> --provider aws'));
+    console.log(chalk.gray('  rclaude run <task-id> --provider aws --aws-mode ec2'));
+    console.log(chalk.gray('  rclaude run <task-id> --provider aws --aws-mode ecs'));
     
   } catch (error) {
     console.error(chalk.red('❌ Error:'), (error as Error).message);
@@ -205,7 +290,7 @@ export function createConfigBackendCommand(): Command {
   
   return command
     .description('Configure default compute backend')
-    .argument('[backend]', 'Backend to use (codespace, ec2)')
+    .argument('[backend]', 'Backend to use (codespace, aws, fly)')
     .option('-g, --global', 'Set globally (default)')
     .option('-p, --project', 'Set for current project only')
     .action(configBackendCommand);
