@@ -1,0 +1,22 @@
+{
+  "name": "@remote-claude/sdk",
+  "version": "0.1.0",
+  "description": "SDK for Remote Claude API",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist",
+    "test": "bun test",
+    "lint": "eslint src --ext .ts"
+  },
+  "dependencies": {
+    "@remote-claude/core": "workspace:*",
+    "axios": "^1.6.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.4",
+    "typescript": "^5.3.3"
+  }
+}
