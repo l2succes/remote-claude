@@ -79,6 +79,7 @@ This document tracks all major features and tasks for the Remote Claude project.
 ### Multi-Cloud Architecture
 - [x] Provider factory pattern
 - [x] Provider selection strategy
+- [x] CLI updated to use provider factory
 - [ ] Configuration management
 - [ ] Migration tools between providers
 - [ ] Unified monitoring across providers
