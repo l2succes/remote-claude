@@ -36,10 +36,18 @@ export interface RunOptions {
   ec2InstanceType?: string;
   ec2Spot?: boolean;
   ec2Region?: string;
+  verbose?: boolean;
 }
 
 export async function runCommand(taskId: string, options: RunOptions): Promise<void> {
   try {
+    // Set log level based on verbose option
+    if (!options.verbose) {
+      process.env.LOG_LEVEL = 'ERROR';
+    } else {
+      process.env.LOG_LEVEL = 'INFO';
+    }
+    
     // Initialize managers
     const configManager = new ConfigManager();
     const configManagerV2 = new ConfigManagerV2();
@@ -893,5 +901,6 @@ export function createRunCommand(): Command {
     .option('--pull-request', 'Create pull request for changes')
     .option('-o, --output <files>', 'Expected output files (comma-separated)')
     .option('--name <name>', 'Custom name for the task')
+    .option('-v, --verbose', 'Show detailed logs during execution')
     .action(runCommand);
 }
