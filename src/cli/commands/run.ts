@@ -672,15 +672,28 @@ export async function runCommand(taskId: string, options: RunOptions): Promise<v
         await computeProvider.terminateSession(session.id);
       } else if (effectiveProvider === 'aws') {
         // Mock output, keep container running and show connection info
-        console.log(chalk.yellow('\n⚠️  ECS Exec is not fully implemented yet.'));
-        console.log(chalk.blue('📦 The container is running with your code.'));
-        console.log(chalk.blue('\nTo connect and run Claude Code manually:'));
-        console.log(chalk.white(`  aws ecs execute-command --cluster ${computeConfig.awsEcs?.clusterName || 'remote-claude-cluster'} --task ${session.metadata?.taskArn} --container claude-code --interactive --command "/bin/bash"`));
-        console.log(chalk.gray('\nThen run:'));
-        console.log(chalk.white(`  cd /workspace && claude "${taskDef.description}"`));
-        console.log(chalk.yellow('\nThe container will keep running. To stop it:'));
-        console.log(chalk.white(`  rclaude status  # Find the session`));
-        console.log(chalk.white(`  rclaude cancel ${session.id}`));
+        console.log(chalk.yellow('\n⚠️  Container is ready but needs manual connection.'));
+        console.log(chalk.blue('📦 Your code has been cloned to /workspace'));
+        
+        // Extract task ID from ARN for cleaner display
+        const taskId = session.metadata?.taskArn?.split('/').pop() || session.id;
+        
+        console.log(chalk.green('\n✅ To connect to your container:'));
+        console.log(chalk.white(`\n  rclaude ecs connect ${session.id}`));
+        
+        console.log(chalk.gray('\nOr manually with AWS CLI:'));
+        console.log(chalk.gray(`  aws ecs execute-command --cluster ${computeConfig.awsEcs?.clusterName || 'remote-claude-cluster'} --task ${taskId} --container claude-code --interactive --command "/bin/bash"`));
+        
+        console.log(chalk.blue('\n💡 Tip: Use --interactive flag to auto-connect:'));
+        console.log(chalk.white(`  rclaude run ${taskId} --interactive`));
+        
+        console.log(chalk.yellow('\n⏱️  Container will keep running. To manage:'));
+        console.log(chalk.white(`  rclaude ecs list          # List sessions`));
+        console.log(chalk.white(`  rclaude ecs terminate ${session.id}  # Stop when done`));
+        
+        // Don't terminate the session
+        await ProviderFactory.shutdown();
+        process.exit(0);
       } else {
         console.log(chalk.blue('🗑️  Terminating session...'));
         await computeProvider.terminateSession(session.id);
