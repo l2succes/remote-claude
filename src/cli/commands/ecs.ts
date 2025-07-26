@@ -10,6 +10,13 @@ export async function listECSSessions(): Promise<void> {
   try {
     console.log(chalk.blue('📋 Remote Claude ECS Sessions\n'))
     
+    // Initialize Config from ConfigManagerV2
+    const { ConfigManagerV2 } = await import('../utils/config-v2')
+    const configManagerV2 = new ConfigManagerV2()
+    const { Config } = await import('../../utils/config')
+    const mergedConfig = configManagerV2.getMergedConfig()
+    Config.initialize(mergedConfig)
+    
     // Initialize provider factory
     await ProviderFactory.initialize()
     const provider = await ProviderFactory.getProvider('aws')
@@ -51,6 +58,13 @@ export async function listECSSessions(): Promise<void> {
 export async function connectToECSSession(sessionId: string): Promise<void> {
   try {
     console.log(chalk.blue(`🔗 Connecting to ECS session ${sessionId}...`))
+    
+    // Initialize Config from ConfigManagerV2
+    const { ConfigManagerV2 } = await import('../utils/config-v2')
+    const configManagerV2 = new ConfigManagerV2()
+    const { Config } = await import('../../utils/config')
+    const mergedConfig = configManagerV2.getMergedConfig()
+    Config.initialize(mergedConfig)
     
     // Initialize provider factory
     await ProviderFactory.initialize()
@@ -122,6 +136,13 @@ export async function connectToECSSession(sessionId: string): Promise<void> {
 export async function terminateECSSession(sessionId: string): Promise<void> {
   try {
     console.log(chalk.blue(`🗑️  Terminating ECS session ${sessionId}...`))
+    
+    // Initialize Config from ConfigManagerV2
+    const { ConfigManagerV2 } = await import('../utils/config-v2')
+    const configManagerV2 = new ConfigManagerV2()
+    const { Config } = await import('../../utils/config')
+    const mergedConfig = configManagerV2.getMergedConfig()
+    Config.initialize(mergedConfig)
     
     // Initialize provider factory
     await ProviderFactory.initialize()

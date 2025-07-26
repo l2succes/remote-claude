@@ -580,44 +580,65 @@ systemctl start amazon-ssm-agent
 
   private async addTaskToService(serviceArn: string, taskId: string): Promise<string> {
     // Run a new task in the service's cluster
-    const runTaskResponse = await this.ecsClient.send(new RunTaskCommand({
-      cluster: this.clusterArn!,
-      taskDefinition: this.taskDefinitionArn!,
-      launchType: 'EC2',
-      networkConfiguration: {
-        awsvpcConfiguration: {
-          subnets: this.config.subnetIds,
-          securityGroups: this.config.securityGroupIds,
+    try {
+      const runTaskResponse = await this.ecsClient.send(new RunTaskCommand({
+        cluster: this.clusterArn!,
+        taskDefinition: this.taskDefinitionArn!,
+        launchType: 'EC2',
+        networkConfiguration: {
+          awsvpcConfiguration: {
+            subnets: this.config.subnetIds,
+            securityGroups: this.config.securityGroupIds,
+          }
+        },
+        overrides: {
+          containerOverrides: [{
+            name: 'claude-code',
+            environment: [
+              { name: 'TASK_ID', value: taskId },
+              { name: 'SERVICE_ARN', value: serviceArn }
+            ]
+          }]
+        },
+        enableExecuteCommand: true, // Enable ECS Exec
+        propagateTags: 'TASK_DEFINITION',
+        tags: [
+          { key: 'TaskId', value: taskId },
+          { key: 'ServiceArn', value: serviceArn }
+        ]
+      }))
+      
+      if (!runTaskResponse.tasks || runTaskResponse.tasks.length === 0) {
+        // Check for failures
+        if (runTaskResponse.failures && runTaskResponse.failures.length > 0) {
+          const failure = runTaskResponse.failures[0]
+          const reason = failure?.reason || 'Unknown reason'
+          
+          if (reason === 'RESOURCE:MEMORY') {
+            throw new Error(
+              `Not enough memory available in ECS cluster. ` +
+              `The task requires 2GB but no EC2 instance has sufficient free memory. ` +
+              `Try: 1) Wait for running tasks to complete, 2) Add more EC2 instances to the cluster, ` +
+              `or 3) Use 'rclaude ecs list' to see running tasks and terminate unused ones.`
+            )
+          }
+          
+          throw new Error(`Failed to run ECS task: ${reason} - ${failure?.detail || 'No details'}`)
         }
-      },
-      overrides: {
-        containerOverrides: [{
-          name: 'claude-code',
-          environment: [
-            { name: 'TASK_ID', value: taskId },
-            { name: 'SERVICE_ARN', value: serviceArn }
-          ]
-        }]
-      },
-      enableExecuteCommand: true, // Enable ECS Exec
-      propagateTags: 'TASK_DEFINITION',
-      tags: [
-        { key: 'TaskId', value: taskId },
-        { key: 'ServiceArn', value: serviceArn }
-      ]
-    }))
-    
-    if (!runTaskResponse.tasks || runTaskResponse.tasks.length === 0) {
-      throw new Error('Failed to run ECS task')
+        throw new Error('Failed to run ECS task: No tasks created')
+      }
+      
+      const taskArn = runTaskResponse.tasks[0]!.taskArn!
+      this.logger.info('Started ECS task', { taskArn, taskId })
+      
+      // Wait for task to be running
+      await this.waitForTaskRunning(taskArn)
+      
+      return taskArn
+    } catch (error) {
+      this.logger.error('Failed to run ECS task', { error, taskId, serviceArn })
+      throw error
     }
-    
-    const taskArn = runTaskResponse.tasks[0]!.taskArn!
-    this.logger.info('Started ECS task', { taskArn, taskId })
-    
-    // Wait for task to be running
-    await this.waitForTaskRunning(taskArn)
-    
-    return taskArn
   }
 
   private async waitForTaskRunning(taskArn: string): Promise<void> {
