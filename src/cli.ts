@@ -14,7 +14,6 @@ import { createEC2Command } from './cli/commands/ec2';
 import { createTasksCommand } from './cli/commands/tasks';
 import { createInitCommand } from './cli/commands/init';
 import { createInitDeploymentCommand } from './cli/commands/init-deployment';
-import { createSSHCommand } from './cli/commands/ssh';
 
 const program = new Command();
 
@@ -35,7 +34,6 @@ program.addCommand(createLogsCommand());
 program.addCommand(createCancelCommand());
 program.addCommand(createSessionCommand());
 program.addCommand(createEC2Command());
-program.addCommand(createSSHCommand());
 
 // Handle unknown commands
 program.on('command:*', () => {

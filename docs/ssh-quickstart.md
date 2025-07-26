@@ -1,148 +1,150 @@
 # Remote Claude SSH Quick Start
 
-This guide covers the SSH v0 implementation that allows you to quickly spin up and connect to Claude Code containers via SSH.
+This guide covers how to use SSH to connect to Remote Claude EC2 instances with automatic Claude Code startup.
 
 ## Prerequisites
 
-- AWS account with ECS configured
+- AWS account configured
 - Remote Claude CLI installed (`rclaude`)
 - SSH client installed
+- EC2 key pair created in AWS
 
 ## Setup
 
 1. **Initialize Remote Claude** (if not already done):
    ```bash
    rclaude init
-   rclaude init-deployment --mode self-hosted
    ```
 
-2. **Build SSH Container** (optional, if using custom image):
+2. **Configure EC2 provider**:
    ```bash
-   cd docker/ssh-container
-   ./build.sh
+   rclaude config ec2 --region us-east-1 --key-pair your-key-name
    ```
 
 ## Usage
 
-### Create SSH Container
+### Create EC2 Instance
 
-Create a new SSH-enabled container:
+Create a new EC2 instance with Claude Code:
 
 ```bash
-rclaude ssh create
+rclaude run "My task" --provider ec2 --interactive
 ```
 
-This will:
-- Generate a unique SSH key pair
-- Launch an ECS task with SSH enabled
-- Wait for the container to be ready
-- Display connection information
-
-### List SSH Containers
-
-View all active SSH containers:
+Or for a specific task:
 
 ```bash
-rclaude ssh list
+rclaude run task-id --provider ec2
+```
+
+### List EC2 Instances
+
+View all Remote Claude EC2 instances:
+
+```bash
+rclaude ec2 list
 ```
 
 Output:
 ```
-Active SSH Containers:
-
-ID                  Status    Public IP         Created
-──────────────────────────────────────────────────────────────────────
-task-abc123         running   54.123.45.67      5m ago
-task-def456         running   54.123.45.68      1h ago
+Instance ID         Status      Type           IP Address      Name                     Created
+────────────────────────────────────────────────────────────────────────────────────────────────
+i-0123456789abcdef  running     t3.medium      54.123.45.67    remote-claude-123456     2024-01-15
+i-0987654321fedcba  stopped     t3.small       -               remote-claude-654321     2024-01-14
 ```
 
-### Connect to Container
+### Connect to Instance
 
 Connect using the Remote Claude CLI:
 
 ```bash
-rclaude ssh connect task-abc123
+rclaude ec2 connect i-0123456789abcdef
 ```
 
-Or connect directly with SSH:
+**Claude Code will start automatically when you connect!**
 
-```bash
-ssh -i ~/.rclaude/ssh/rclaude-ssh-1234567890 claude@54.123.45.67
-```
+### Inside the Instance
 
-### Inside the Container
+When you SSH into a Remote Claude EC2 instance:
 
-Once connected, you have access to:
-
-- **Development Tools**: Node.js, npm, git, vim, tmux
-- **ViberKit SDK**: For AI agent development (when integrated)
-- **Claude Code CLI**: For AI assistance (when available)
-- **Workspace**: `/workspace` directory for your projects
+1. **Claude Code starts automatically** - No need to run any commands
+2. **You'll see a welcome message** with available commands
+3. **Full development environment** is ready to use
 
 Example session:
 ```bash
-claude@container:~$ cd /workspace
-claude@container:/workspace$ npm init -y
-claude@container:/workspace$ npm install express
-claude@container:/workspace$ node app.js
+$ rclaude ec2 connect i-0123456789abcdef
+🔗 Connecting to EC2 instance i-0123456789abcdef...
+✅ Establishing SSH connection...
+
+🚀 Starting Claude Code...
+
+Welcome to Remote Claude EC2 Instance!
+======================================
+
+Available commands:
+  claude         - Start Claude Code
+  exit           - Exit Claude Code and return to shell
+  Ctrl+C         - Interrupt current operation
+
+[Claude Code session starts automatically]
 ```
 
-### Stop Container
+### Stop Instance
 
-When done, stop the container:
+When done, terminate the instance:
 
 ```bash
-rclaude ssh stop task-abc123
+rclaude ec2 terminate i-0123456789abcdef
 ```
-
-This will:
-- Stop the ECS task
-- Clean up resources
-- Remove the SSH key pair
 
 ## Security
 
-- Each container gets a unique SSH key pair
-- Keys are stored in `~/.rclaude/ssh/` with proper permissions
-- Containers run as non-root user (`claude`)
-- SSH password authentication is disabled
-- Only key-based authentication is allowed
+- Uses your AWS EC2 key pair for authentication
+- SSH key should be in `~/.ssh/your-key-name.pem`
+- Instances run with proper IAM roles
+- Security groups control network access
+- Auto-shutdown after idle timeout (configurable)
 
 ## Configuration
 
-Configure SSH containers in your `.rclaude/config.json`:
+Configure EC2 settings:
 
-```json
-{
-  "aws": {
-    "ecs": {
-      "sshImage": "remote-claude/ssh-container:latest",
-      "instanceType": "t3.medium",
-      "securityGroups": ["sg-xxx"],
-      "subnets": ["subnet-xxx", "subnet-yyy"]
-    }
-  }
-}
+```bash
+# Set region
+rclaude config ec2 --region us-west-2
+
+# Set instance type
+rclaude config ec2 --instance-type t3.large
+
+# Set idle timeout (minutes)
+rclaude config ec2 --idle-timeout 30
+
+# Enable spot instances for cost savings
+rclaude config ec2 --spot-instance
 ```
 
 ## Troubleshooting
 
-### Container fails to start
+### Claude Code doesn't start automatically
 
-Check ECS logs:
-```bash
-aws ecs describe-tasks --cluster remote-claude-cluster --tasks task-abc123
-```
+1. Check if the instance was created with the latest user data script
+2. Manually start Claude Code with: `claude`
+3. For older instances, install Claude Code:
+   ```bash
+   sudo npm install -g @anthropic-ai/claude-code
+   ```
 
 ### SSH connection refused
 
-1. Verify security group allows SSH (port 22)
-2. Check if container has public IP
-3. Ensure SSH key permissions are correct (600)
+1. Verify security group allows SSH (port 22) from your IP
+2. Check if instance has public IP: `rclaude ec2 list`
+3. Ensure SSH key permissions: `chmod 600 ~/.ssh/your-key.pem`
 
-### Container stops immediately
+### Instance not found
 
-Check task definition has enough CPU/memory allocated.
+1. Check correct region: `rclaude config ec2`
+2. Verify AWS credentials: `aws configure`
 
 ## Cost Optimization
 
@@ -158,10 +160,25 @@ Check task definition has enough CPU/memory allocated.
 - Set up your development environment
 - Experiment with ViberKit for AI agent development
 
-## Future Enhancements
+## Advanced Features
 
-- Persistent workspace volumes
-- Container templates with pre-installed tools
-- Integration with Claude Code SDK
-- Automated cleanup of idle containers
-- Cost tracking and alerts
+### SSH Agent Forwarding
+
+Enable GitHub access from the instance:
+```bash
+rclaude ec2 connect i-0123456789abcdef --forward-agent
+```
+
+### Copy SSH Keys
+
+Set up passwordless Git access:
+```bash
+rclaude ec2 copy-ssh-key i-0123456789abcdef --setup-github
+```
+
+### Run Specific Command
+
+Execute a command without interactive session:
+```bash
+rclaude ec2 connect i-0123456789abcdef --command "npm test"
+```
