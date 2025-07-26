@@ -350,9 +350,35 @@ export class ECSProvider implements ComputeProvider {
         essential: true,
         environment: [
           { name: 'PROVIDER', value: 'ecs' },
-          { name: 'REMOTE_CLAUDE', value: 'true' }
+          { name: 'REMOTE_CLAUDE', value: 'true' },
+          { name: 'CLAUDE_AUTO_START', value: 'true' }
         ],
-        command: ['sleep', 'infinity'], // Keep container running
+        command: ['/bin/bash', '-c', `
+          # Install Claude Code if not present
+          if ! command -v claude &> /dev/null; then
+            npm install -g @anthropic-ai/claude-code
+          fi
+          
+          # Create startup script
+          cat > /usr/local/bin/claude-start.sh << 'EOF'
+#!/bin/bash
+echo "🚀 Welcome to Remote Claude ECS Container!"
+echo "===================================="
+echo ""
+echo "Claude Code will start automatically..."
+echo ""
+
+# Start Claude Code
+exec claude
+EOF
+          
+          chmod +x /usr/local/bin/claude-start.sh
+          
+          # Keep container running and start Claude Code on connection
+          while true; do
+            sleep infinity
+          done
+        `],
         portMappings: [{
           containerPort: 8080,
           protocol: 'tcp' as any // AWS SDK type issue
@@ -627,30 +653,28 @@ systemctl start amazon-ssm-agent
     command: string
   ): Promise<any> {
     // Get the task ARN for this session
-    // In a real implementation, we'd store this mapping
     const taskArn = await this.getTaskArnForSession(sessionId)
     
     if (!taskArn) {
       throw new Error(`No task found for session ${sessionId}`)
     }
     
-    // Use ECS Exec to run the command
-    const { SSMClient, StartSessionCommand } = await import('@aws-sdk/client-ssm')
-    const ssmClient = new SSMClient({ region: this.config.region })
+    // Import ECS Exec functionality
+    const { executeECSCommand } = await import('./ecs-exec')
     
     try {
-      // For now, we'll need to implement the full ECS Exec flow
-      // This is a simplified version
-      this.logger.info('ECS Exec command execution not fully implemented', {
-        sessionId,
+      const result = await executeECSCommand(this.ecsClient, {
+        cluster: this.clusterArn!,
+        task: taskArn,
+        container: 'claude-code',
         command,
-        taskArn
+        interactive: false
       })
       
       return {
-        exitCode: 0,
-        stdout: `Would execute: ${command}`,
-        stderr: '',
+        exitCode: result.exitCode,
+        stdout: result.stdout,
+        stderr: result.stderr,
         taskArn
       }
     } catch (error) {

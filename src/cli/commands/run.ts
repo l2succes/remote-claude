@@ -371,20 +371,31 @@ export async function runCommand(taskId: string, options: RunOptions): Promise<v
         
         console.log(chalk.green('✅ Interactive session ready!'));
         
-        // For now, show connection instructions
-        // TODO: Implement interactive connection based on provider type
+        // Connect to the container based on provider type
         if (providerName === 'aws') {
-          console.log(chalk.blue('🔗 To connect to your AWS ECS session:'));
-          console.log(chalk.gray('Use ECS Exec to connect to the container'));
-          console.log(chalk.gray(`aws ecs execute-command --cluster remote-claude --task ${session.metadata?.taskArn} --container claude-code --interactive --command "/bin/bash"`));
+          // Import ECS connection helper
+          const { connectToECSContainer } = await import('../utils/ecs-connect');
+          
+          try {
+            await connectToECSContainer({
+              cluster: computeConfig.awsEcs?.clusterName || 'remote-claude-cluster',
+              taskArn: session.metadata?.taskArn,
+              container: 'claude-code',
+              region: computeConfig.awsEcs?.region || 'us-east-1'
+            });
+            
+            console.log(chalk.green('\n✅ Disconnected from ECS container'));
+          } catch (error) {
+            console.error(chalk.red('❌ Connection failed:'), (error as Error).message);
+          }
         } else if (providerName === 'fly') {
           console.log(chalk.blue('🔗 To connect to your Fly.io session:'));
           console.log(chalk.gray('Use Fly SSH to connect'));
           console.log(chalk.gray(`fly ssh console -a ${session.metadata?.appName}`));
+          
+          // Wait for user to exit
+          console.log(chalk.yellow('\nPress Ctrl+C to end the session...'));
         }
-        
-        // Wait for user to exit
-        console.log(chalk.yellow('\nPress Ctrl+C to end the session...'));
         
         // Handle cleanup on exit
         process.on('SIGINT', async () => {
@@ -654,8 +665,26 @@ export async function runCommand(taskId: string, options: RunOptions): Promise<v
         // TODO: Handle auto-commit and PR creation
       }
       
-      console.log(chalk.blue('🗑️  Terminating session...'));
-      await computeProvider.terminateSession(session.id);
+      // For ECS, show how to connect since exec isn't fully working
+      if (effectiveProvider === 'aws' && !result.output.startsWith('Would execute:')) {
+        // Real output, we can terminate
+        console.log(chalk.blue('🗑️  Terminating session...'));
+        await computeProvider.terminateSession(session.id);
+      } else if (effectiveProvider === 'aws') {
+        // Mock output, keep container running and show connection info
+        console.log(chalk.yellow('\n⚠️  ECS Exec is not fully implemented yet.'));
+        console.log(chalk.blue('📦 The container is running with your code.'));
+        console.log(chalk.blue('\nTo connect and run Claude Code manually:'));
+        console.log(chalk.white(`  aws ecs execute-command --cluster ${computeConfig.awsEcs?.clusterName || 'remote-claude-cluster'} --task ${session.metadata?.taskArn} --container claude-code --interactive --command "/bin/bash"`));
+        console.log(chalk.gray('\nThen run:'));
+        console.log(chalk.white(`  cd /workspace && claude "${taskDef.description}"`));
+        console.log(chalk.yellow('\nThe container will keep running. To stop it:'));
+        console.log(chalk.white(`  rclaude status  # Find the session`));
+        console.log(chalk.white(`  rclaude cancel ${session.id}`));
+      } else {
+        console.log(chalk.blue('🗑️  Terminating session...'));
+        await computeProvider.terminateSession(session.id);
+      }
       
       await ProviderFactory.shutdown();
       process.exit(result.success ? 0 : 1);
