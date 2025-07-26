@@ -18,9 +18,13 @@ export async function connectToECSContainer(options: ECSConnectOptions): Promise
   // Check if session-manager-plugin is installed
   const hasPlugin = await checkSessionManagerPlugin()
   if (!hasPlugin) {
-    console.error(chalk.red('❌ AWS Session Manager Plugin is not installed'))
-    console.log(chalk.yellow('Please install it from:'))
-    console.log(chalk.blue('https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html'))
+    console.error(chalk.red('\n❌ AWS Session Manager Plugin is not installed'))
+    console.log(chalk.yellow('\nThe Session Manager Plugin is required to connect to ECS containers.'))
+    console.log(chalk.white('\nTo install it:'))
+    console.log(chalk.gray('• macOS:    ') + chalk.white('brew install --cask session-manager-plugin'))
+    console.log(chalk.gray('• Ubuntu:   ') + chalk.white('See AWS documentation below'))
+    console.log(chalk.gray('• Windows:  ') + chalk.white('Download installer from AWS'))
+    console.log(chalk.blue('\nFull instructions: https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html'))
     process.exit(1)
   }
   

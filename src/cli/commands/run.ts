@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import inquirer from 'inquirer';
+import ora from 'ora';
 import { ConfigManager } from '../utils/config';
 import { ConfigManagerV2 } from '../utils/config-v2';
 import { AuthManager } from '../utils/auth';
@@ -239,10 +240,17 @@ export async function runCommand(taskId: string, options: RunOptions): Promise<v
     // Record that we're running this task
     taskRegistry.recordRun(taskId);
     
-    console.log(chalk.blue('🚀 Starting remote Claude Code task...'));
-    console.log(chalk.gray(`Task ID: ${taskId}`));
-    console.log(chalk.gray(`Task: ${taskDef.name}`));
-    console.log(chalk.gray(`Description: ${taskDef.description}`));
+    if (options.interactive !== false) {
+      console.log(chalk.blue('🚀 Starting interactive Claude Code session...'));
+    } else {
+      console.log(chalk.blue('🚀 Starting remote Claude Code task...'));
+    }
+    
+    if (options.verbose) {
+      console.log(chalk.gray(`Task ID: ${taskId}`));
+      console.log(chalk.gray(`Task: ${taskDef.name}`));
+      console.log(chalk.gray(`Description: ${taskDef.description}`));
+    }
     
     // Merge options: CLI options > task defaults > config defaults
     const repository = options.repo || taskDef.repository;
@@ -253,13 +261,15 @@ export async function runCommand(taskId: string, options: RunOptions): Promise<v
                      taskDef.defaultOptions?.provider || 
                      configManagerV2.getDefaultBackend();
     
-    console.log(chalk.gray(`Repository: ${repository}`));
-    if (branch) {
-      console.log(chalk.gray(`Branch: ${branch}`));
+    if (options.verbose) {
+      console.log(chalk.gray(`Repository: ${repository}`));
+      if (branch) {
+        console.log(chalk.gray(`Branch: ${branch}`));
+      }
+      console.log(chalk.gray(`Timeout: ${timeout}s`));
+      console.log(chalk.gray(`Priority: ${priority}`));
+      console.log(chalk.gray(`Provider: ${provider}`));
     }
-    console.log(chalk.gray(`Timeout: ${timeout}s`));
-    console.log(chalk.gray(`Priority: ${priority}`));
-    console.log(chalk.gray(`Provider: ${provider}`));
     
     // Validate and show codespace configuration
     if (options.idleTimeout) {
@@ -267,13 +277,15 @@ export async function runCommand(taskId: string, options: RunOptions): Promise<v
         console.error(chalk.red('❌ Idle timeout must be between 30 and 1440 minutes (24 hours)'));
         process.exit(1);
       }
-      console.log(chalk.gray(`Idle timeout: ${options.idleTimeout} minutes`));
+      if (options.verbose) {
+        console.log(chalk.gray(`Idle timeout: ${options.idleTimeout} minutes`));
+      }
     }
-    if (options.machineType && options.machineType !== 'basicLinux32gb') {
+    if (options.machineType && options.machineType !== 'basicLinux32gb' && options.verbose) {
       console.log(chalk.gray(`Machine type: ${options.machineType}`));
     }
     
-    if (options.interactive) {
+    if (options.interactive !== false) {
       // Interactive mode - create environment and connect directly
       console.log(chalk.blue('🖥️  Starting interactive Claude Code session...'));
       
@@ -294,7 +306,10 @@ export async function runCommand(taskId: string, options: RunOptions): Promise<v
       // Build compute configuration for interactive session
       const computeConfig = buildComputeConfig(options, taskDef, configManagerV2);
       const sessionId = options.sessionId || `interactive-${Date.now()}`;
-      console.log(chalk.gray(`Session ID: ${sessionId}`));
+      
+      if (options.verbose) {
+        console.log(chalk.gray(`Session ID: ${sessionId}`));
+      }
       
       // Get the appropriate provider based on user selection
       let providerName = provider;
@@ -303,7 +318,9 @@ export async function runCommand(taskId: string, options: RunOptions): Promise<v
       if (provider === 'aws') {
         providerName = 'aws';
         const awsMode = configManagerV2.getAWSMode();
-        console.log(chalk.gray(`AWS mode: ${awsMode}`));
+        if (options.verbose) {
+          console.log(chalk.gray(`AWS mode: ${awsMode}`));
+        }
       }
       
       // Check if using AWS provider and needs setup
@@ -332,63 +349,91 @@ export async function runCommand(taskId: string, options: RunOptions): Promise<v
       
       if (providerName === 'aws' || providerName === 'fly') {
         // Use new provider system
-        // Use provider name directly
-        const factoryProviderName = providerName;
-        const computeProvider = await ProviderFactory.getProvider(factoryProviderName);
+        const spinner = ora('Setting up session...').start();
+        let session: any; // TODO: Add proper type
+        let computeProvider: any; // TODO: Add proper type
         
-        console.log(chalk.gray(`Provider: ${providerName}`));
-        
-        // Create session with the new provider
-        const session = await computeProvider.createSession({
-          taskId: sessionId,
-          userId: 'cli-user', // TODO: Get from auth
-          repository,
-          branch,
-          resources: {
-            cpu: options.machineType || taskDef.defaultOptions?.ec2InstanceType || taskDef.defaultOptions?.machineType || undefined,
-            memory: '4GB', // TODO: Make configurable
-            disk: '50GB', // TODO: Make configurable
+        try {
+          // Use provider name directly
+          const factoryProviderName = providerName;
+          computeProvider = await ProviderFactory.getProvider(factoryProviderName);
+          
+          if (options.verbose) {
+            spinner.stop();
+            console.log(chalk.gray(`Provider: ${providerName}`));
+            spinner.start();
           }
-        });
-        
-        console.log(chalk.green('✅ Session created!'));
-        console.log(chalk.gray(`Session ID: ${session.id}`));
-        console.log(chalk.gray(`Status: ${session.status}`));
-        
-        if (session.metadata) {
-          Object.entries(session.metadata).forEach(([key, value]) => {
-            console.log(chalk.gray(`${key}: ${value}`));
+          
+          spinner.text = 'Creating session...';
+          
+          // Create session with the new provider
+          session = await computeProvider.createSession({
+            taskId: sessionId,
+            userId: 'cli-user', // TODO: Get from auth
+            repository,
+            branch,
+            resources: {
+              cpu: options.machineType || taskDef.defaultOptions?.ec2InstanceType || taskDef.defaultOptions?.machineType || undefined,
+              memory: '4GB', // TODO: Make configurable
+              disk: '50GB', // TODO: Make configurable
+            }
           });
+          
+          spinner.succeed('Session created!');
+          
+          if (options.verbose) {
+            console.log(chalk.gray(`Session ID: ${session.id}`));
+            console.log(chalk.gray(`Status: ${session.status}`));
+            
+            if (session.metadata) {
+              Object.entries(session.metadata).forEach(([key, value]) => {
+                console.log(chalk.gray(`${key}: ${value}`));
+              });
+            }
+          }
+          
+          // Install Claude Code
+          spinner.start('Installing Claude Code...');
+          await computeProvider.executeCommand(session.id, 'sudo npm install -g @anthropic-ai/claude-code');
+          
+          // Clone repository
+          spinner.text = 'Cloning repository...';
+          await computeProvider.executeCommand(session.id, `git clone https://github.com/${repository}.git /workspace && cd /workspace && git checkout ${branch || 'main'}`);
+          
+          spinner.succeed('Interactive session ready!');
+        
+          // Connect to the container based on provider type
+          if (providerName === 'aws') {
+            // Import ECS connection helper
+            const { connectToECSContainer } = await import('../utils/ecs-connect');
+            
+            try {
+              // Get cluster name from config or use default
+              const clusterName = computeConfig.awsEcs?.clusterName || 
+                                 configManagerV2.get('aws.ecs.clusterName') || 
+                                 configManagerV2.get('ecs.clusterName') || 
+                                 'remote-claude-cluster';
+              
+              await connectToECSContainer({
+                cluster: clusterName,
+                taskArn: session.metadata?.taskArn,
+                container: 'claude-code',
+                region: computeConfig.awsEcs?.region || 'us-east-1'
+              });
+              
+              console.log(chalk.green('\n✅ Disconnected from ECS container'));
+            } catch (error) {
+              console.error(chalk.red('❌ Connection failed:'), (error as Error).message);
+            }
+          }
+        } catch (error) {
+          spinner.fail('Failed to create session');
+          console.error(chalk.red('Error:'), (error as Error).message);
+          await ProviderFactory.shutdown();
+          process.exit(1);
         }
         
-        // Install Claude Code
-        console.log(chalk.blue('📦 Installing Claude Code...'));
-        await computeProvider.executeCommand(session.id, 'sudo npm install -g @anthropic-ai/claude-code');
-        
-        // Clone repository
-        console.log(chalk.blue('📂 Cloning repository...'));
-        await computeProvider.executeCommand(session.id, `git clone https://github.com/${repository}.git /workspace && cd /workspace && git checkout ${branch || 'main'}`);
-        
-        console.log(chalk.green('✅ Interactive session ready!'));
-        
-        // Connect to the container based on provider type
-        if (providerName === 'aws') {
-          // Import ECS connection helper
-          const { connectToECSContainer } = await import('../utils/ecs-connect');
-          
-          try {
-            await connectToECSContainer({
-              cluster: computeConfig.awsEcs?.clusterName || 'remote-claude-cluster',
-              taskArn: session.metadata?.taskArn,
-              container: 'claude-code',
-              region: computeConfig.awsEcs?.region || 'us-east-1'
-            });
-            
-            console.log(chalk.green('\n✅ Disconnected from ECS container'));
-          } catch (error) {
-            console.error(chalk.red('❌ Connection failed:'), (error as Error).message);
-          }
-        } else if (providerName === 'fly') {
+        if (providerName === 'fly') {
           console.log(chalk.blue('🔗 To connect to your Fly.io session:'));
           console.log(chalk.gray('Use Fly SSH to connect'));
           console.log(chalk.gray(`fly ssh console -a ${session.metadata?.appName}`));
@@ -409,10 +454,10 @@ export async function runCommand(taskId: string, options: RunOptions): Promise<v
             default: false,
           }]);
           
-          if (!keepSession) {
+          if (!keepSession && computeProvider && session) {
             console.log(chalk.blue('🗑️  Terminating session...'));
             await computeProvider.terminateSession(session.id);
-          } else {
+          } else if (session) {
             console.log(chalk.green('✅ Session kept running:'), session.id);
           }
           
@@ -666,7 +711,7 @@ export async function runCommand(taskId: string, options: RunOptions): Promise<v
       }
       
       // For ECS, show how to connect since exec isn't fully working
-      if (effectiveProvider === 'aws' && !result.output.startsWith('Would execute:')) {
+      if (effectiveProvider === 'aws' && result.output && !result.output.startsWith('Would execute:')) {
         // Real output, we can terminate
         console.log(chalk.blue('🗑️  Terminating session...'));
         await computeProvider.terminateSession(session.id);
@@ -682,10 +727,13 @@ export async function runCommand(taskId: string, options: RunOptions): Promise<v
         console.log(chalk.white(`\n  rclaude ecs connect ${session.id}`));
         
         console.log(chalk.gray('\nOr manually with AWS CLI:'));
-        console.log(chalk.gray(`  aws ecs execute-command --cluster ${computeConfig.awsEcs?.clusterName || 'remote-claude-cluster'} --task ${taskId} --container claude-code --interactive --command "/bin/bash"`));
+        const clusterName = computeConfig.awsEcs?.clusterName || 
+                           configManagerV2.get('aws.ecs.clusterName') || 
+                           configManagerV2.get('ecs.clusterName') || 
+                           'remote-claude-cluster';
+        console.log(chalk.gray(`  aws ecs execute-command --cluster ${clusterName} --task ${taskId} --container claude-code --interactive --command "/bin/bash"`));
         
-        console.log(chalk.blue('\n💡 Tip: Use --interactive flag to auto-connect:'));
-        console.log(chalk.white(`  rclaude run ${taskId} --interactive`));
+        console.log(chalk.blue('\n💡 Tip: Next time, the command will auto-connect to the container.'));
         
         console.log(chalk.yellow('\n⏱️  Container will keep running. To manage:'));
         console.log(chalk.white(`  rclaude ecs list          # List sessions`));
@@ -924,7 +972,7 @@ export function createRunCommand(): Command {
     .option('-b, --branch <branch>', 'Git branch to use')
     .option('-t, --timeout <seconds>', 'Task timeout in seconds', '7200')
     .option('-p, --priority <level>', 'Task priority (low, normal, high, urgent)', 'normal')
-    .option('-i, --interactive', 'Run in interactive mode (connects directly to codespace)')
+    .option('--no-interactive', 'Disable interactive mode (run task without connecting)')
     .option('--session-id <id>', 'Custom session ID for interactive sessions (alphanumeric with hyphens)')
     .option('--persistent', 'Enable persistent session with tmux (default for interactive)')
     .option('--no-persistent', 'Disable persistent session setup')

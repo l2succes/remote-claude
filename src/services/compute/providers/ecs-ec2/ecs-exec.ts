@@ -1,6 +1,8 @@
 import { ECSClient, ExecuteCommandCommand } from '@aws-sdk/client-ecs'
 import { spawn } from 'child_process'
-import { logger } from '../../../../utils/logger'
+import { Logger } from '../../../../utils/logger'
+
+const logger = new Logger('ecs-exec')
 
 export interface ECSExecOptions {
   cluster: string
