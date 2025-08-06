@@ -15,21 +15,36 @@ export interface ECSConnectOptions {
 export async function connectToECSContainer(options: ECSConnectOptions): Promise<void> {
   const { cluster, taskArn, container = 'claude-code', region = 'us-east-1' } = options
   
+  // Extract task ID from ARN
+  const taskId = taskArn.split('/').pop()
+  
   // Check if session-manager-plugin is installed
   const hasPlugin = await checkSessionManagerPlugin()
   if (!hasPlugin) {
     console.error(chalk.red('\n❌ AWS Session Manager Plugin is not installed'))
-    console.log(chalk.yellow('\nThe Session Manager Plugin is required to connect to ECS containers.'))
-    console.log(chalk.white('\nTo install it:'))
+    console.log(chalk.yellow('\nThe Session Manager Plugin is required for direct CLI connection.'))
+    
+    console.log(chalk.blue('\n🌐 Alternative: Connect via AWS Console'))
+    console.log(chalk.white('1. Open: https://console.aws.amazon.com/ecs/v2/clusters/' + cluster))
+    console.log(chalk.white('2. Click on the running task'))
+    console.log(chalk.white('3. Click "Connect" → "Connect with Session Manager"'))
+    
+    console.log(chalk.blue('\n📦 To install the plugin for CLI access:'))
     console.log(chalk.gray('• macOS:    ') + chalk.white('brew install --cask session-manager-plugin'))
-    console.log(chalk.gray('• Ubuntu:   ') + chalk.white('See AWS documentation below'))
-    console.log(chalk.gray('• Windows:  ') + chalk.white('Download installer from AWS'))
+    console.log(chalk.gray('• Ubuntu:   ') + chalk.white('curl "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb" -o "session-manager-plugin.deb" && sudo dpkg -i session-manager-plugin.deb'))
+    console.log(chalk.gray('• Windows:  ') + chalk.white('Download from AWS'))
+    
     console.log(chalk.blue('\nFull instructions: https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html'))
+    
+    // Show task details for manual connection
+    console.log(chalk.yellow('\n📋 Task Details:'))
+    console.log(chalk.gray('Cluster: ') + chalk.white(cluster))
+    console.log(chalk.gray('Task: ') + chalk.white(taskId))
+    console.log(chalk.gray('Container: ') + chalk.white(container))
+    console.log(chalk.gray('Region: ') + chalk.white(region))
+    
     process.exit(1)
   }
-  
-  // Extract task ID from ARN
-  const taskId = taskArn.split('/').pop()
   
   console.log(chalk.blue('🔗 Connecting to ECS container...'))
   console.log(chalk.gray(`Cluster: ${cluster}`))
