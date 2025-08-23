@@ -15,6 +15,7 @@ import { createTasksCommand } from './cli/commands/tasks';
 import { createInitCommand } from './cli/commands/init';
 import { createInitDeploymentCommand } from './cli/commands/init-deployment';
 import { createECSCommand } from './cli/commands/ecs';
+import { createWebSocketCommand } from './cli/commands/websocket';
 
 const program = new Command();
 
@@ -36,6 +37,7 @@ program.addCommand(createCancelCommand());
 program.addCommand(createSessionCommand());
 program.addCommand(createEC2Command());
 program.addCommand(createECSCommand());
+program.addCommand(createWebSocketCommand());
 
 // Handle unknown commands
 program.on('command:*', () => {
