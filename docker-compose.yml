@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  remote-claude:
+    image: remote-claude:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: remote-claude-dev
+    volumes:
+      # Mount the current directory as workspace
+      - ./test-workspace:/workspace
+      # Mount docker socket for Docker-in-Docker if needed
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - NODE_ENV=development
+      - CLAUDE_ENV=container
+    ports:
+      # WebSocket port for agent communication
+      - "8080:8080"
+      # Debug port
+      - "9229:9229"
+    networks:
+      - remote-claude-network
+    restart: unless-stopped
+    # Override entrypoint for development
+    entrypoint: ["/bin/bash", "-c", "echo 'Remote Claude Dev Container Ready' && exec sleep infinity"]
+
+networks:
+  remote-claude-network:
+    driver: bridge
