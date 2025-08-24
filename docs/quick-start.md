@@ -1,22 +1,23 @@
 # 🚀 Remote Claude Quick Start Guide
 
-Welcome to Remote Claude! This guide will get you up and running in under 5 minutes.
+Get up and running with Remote Claude in under 5 minutes!
 
-## Table of Contents
-- [Installation](#installation)
-- [Initial Setup](#initial-setup)
-- [Your First Task](#your-first-task)
-- [Task Management](#task-management)
-- [Backend Selection](#backend-selection)
-- [Project Configuration](#project-configuration)
-- [Common Workflows](#common-workflows)
-- [Next Steps](#next-steps)
+## Prerequisites
+
+- Node.js 18+ installed
+- Git installed  
+- GitHub account (for repository access)
+- E2B API key (free tier at [e2b.dev](https://e2b.dev))
+- Anthropic API key (for Claude)
 
 ## Installation
 
 ```bash
 # Install globally via npm
-npm install -g remote-claude
+npm install -g @remote-claude/cli
+
+# Or use npx (no installation needed)
+npx @remote-claude/cli
 
 # Verify installation
 rclaude --version
@@ -24,334 +25,361 @@ rclaude --version
 
 ## Initial Setup
 
-### 1. GitHub Authentication (Required)
+### 1. Configure API Keys
 
-First, create a GitHub Personal Access Token:
-1. Go to [GitHub Settings > Tokens](https://github.com/settings/tokens)
-2. Click "Generate new token"
-3. Select scopes: `repo`, `codespace`, `admin:org` (for Codespaces)
-4. Copy the token
-
-Configure Remote Claude:
 ```bash
-# Set your GitHub token
-rclaude config github --token ghp_your_token_here
+# Interactive setup (recommended)
+rclaude init
 
-# Verify authentication
-rclaude config github
+# Or set keys individually
+rclaude config set E2B_API_KEY your_e2b_key
+rclaude config set ANTHROPIC_API_KEY your_anthropic_key
+rclaude config set GITHUB_TOKEN your_github_token  # For private repos
 ```
 
-### 2. Choose Your Backend (Optional)
-
-Remote Claude supports two compute backends:
+### 2. Test Your Setup
 
 ```bash
-# Interactive backend selection
-rclaude config backend
+# Verify connections
+rclaude test
 
-# Or set directly
-rclaude config backend codespace  # GitHub Codespaces (default)
-rclaude config backend ec2         # AWS EC2
+# This will check:
+# ✓ E2B sandbox connection
+# ✓ Anthropic API access
+# ✓ GitHub authentication (if configured)
 ```
 
-#### GitHub Codespaces (Default)
-- No additional setup required
-- Integrated with GitHub
-- Pay-per-use pricing
+## Your First Session
 
-#### AWS EC2
-- Requires AWS CLI configured (`aws configure`)
-- Supports spot instances for cost savings
-- Auto-terminates after tasks
-
-## Your First Task
-
-### Creating and Running a Task
+### Quick Start
 
 ```bash
-# Run a new task (will prompt for details)
-rclaude run fix-login-bug
+# Start a session with any GitHub repository
+rclaude start https://github.com/user/repo
+
+# Or use your current directory
+rclaude start .
+
+# Claude is now ready to help!
 ```
 
-You'll be prompted to provide:
-1. **Task name**: A descriptive name (e.g., "Fix Login Bug")
-2. **Description**: What Claude should do (e.g., "Fix the authentication issue in login.js")
-3. **Repository**: GitHub repo (e.g., "myorg/myapp")
-4. **Backend**: Which compute provider to use
-
-The task is saved and can be reused:
+### Run Your First Task
 
 ```bash
-# Run the same task again
-rclaude run fix-login-bug
+# Ask Claude to help with your code
+rclaude run "Add error handling to the login function"
+
+# Claude will:
+# 1. Analyze your codebase
+# 2. Make the requested changes
+# 3. Show you the results
+# 4. Save the session for later
 ```
 
-### Task ID Best Practices
+## Core Commands
 
-Use descriptive, memorable task IDs:
-- ✅ `fix-auth`, `add-tests`, `refactor-api`
-- ❌ `task1`, `temp`, `test`
-
-## Task Management
-
-### List Your Tasks
+### Session Management
 
 ```bash
-# Show all tasks
-rclaude tasks
+# Start a new session
+rclaude start <repository-url>
 
-# Show recently used tasks
-rclaude tasks --recent
+# List active sessions
+rclaude list
 
-# Search for tasks
-rclaude tasks --search auth
+# Resume a previous session
+rclaude resume <session-id>
 
-# Filter by repository
-rclaude tasks --repository myorg/myapp
+# Pause to save costs (preserves state)
+rclaude pause
+
+# Stop and clean up
+rclaude stop
 ```
 
-### Interactive Task Menu
-
-Running `rclaude tasks` provides an interactive menu to:
-- Run a task
-- Edit task details
-- Delete tasks
-- Export tasks
-
-### Task Details
-
-Each task stores:
-- Task ID and name
-- Description (Claude's instructions)
-- Repository and branch
-- Default backend and options
-- Run history
-
-## Backend Selection
-
-### Per-Task Backend
-
-Override the default backend for specific tasks:
+### Working with Claude
 
 ```bash
-# Use EC2 for a compute-intensive task
-rclaude run data-processing --provider ec2
+# Run a task
+rclaude run "Fix the bug in auth.js"
 
-# Use Codespaces for a quick fix
-rclaude run quick-fix --provider codespace
+# Interactive mode (chat with Claude)
+rclaude chat
+
+# Execute a specific command
+rclaude exec "npm test"
+
+# View files
+rclaude ls src/
+rclaude cat src/index.js
 ```
 
-### EC2 Instance Types
-
-For EC2 tasks, choose appropriate instance types:
+### Task Management
 
 ```bash
-# Small tasks (default)
-rclaude run small-task --ec2-instance-type t3.micro
+# Save a task for reuse
+rclaude task save "test" "Run all tests and fix failures"
 
-# CPU-intensive tasks
-rclaude run compile-project --ec2-instance-type c5.xlarge
+# Run a saved task
+rclaude task run test
 
-# Use spot instances for cost savings
-rclaude run batch-job --ec2-spot
+# List saved tasks
+rclaude task list
+```
+
+## Common Use Cases
+
+### 🐛 Fix a Bug
+```bash
+rclaude run "Fix the TypeError in utils/auth.js line 42"
+```
+
+### ✨ Add a Feature
+```bash
+rclaude run "Add pagination to the user list component with 10 items per page"
+```
+
+### ♻️ Refactor Code
+```bash
+rclaude run "Refactor the database module to use connection pooling"
+```
+
+### 🧪 Write Tests
+```bash
+rclaude run "Write comprehensive unit tests for the auth module"
+```
+
+### 📝 Generate Documentation
+```bash
+rclaude run "Add JSDoc comments to all public API methods"
 ```
 
 ## Project Configuration
 
-### Initialize a Project
-
-Create project-specific settings:
-
-```bash
-# In your project directory
-rclaude init
-```
-
-This creates `.rclaude.json` with project defaults:
+Create `.remote-claude.json` in your project root:
 
 ```json
 {
-  "defaultBackend": "ec2",
-  "github": {
-    "defaultRepository": "myorg/myproject"
+  "repository": "https://github.com/user/repo",
+  "defaultBranch": "main",
+  "environment": {
+    "NODE_ENV": "development",
+    "API_URL": "http://localhost:3000"
   },
-  "defaults": {
-    "timeout": 3600,
-    "autoCommit": true,
-    "pullRequest": false
+  "tasks": {
+    "test": "Run all tests and fix any failures",
+    "lint": "Run ESLint and fix all issues",
+    "deploy": "Build and deploy to production"
+  },
+  "persistence": {
+    "enabled": true,
+    "autoSave": true,
+    "saveInterval": 300
   }
 }
 ```
 
-### Configuration Hierarchy
-
-Settings are applied in this order:
-1. Command-line flags (highest priority)
-2. Task saved defaults
-3. Project config (`.rclaude.json`)
-4. Global config (`~/.rclauderc`)
-
-## Common Workflows
-
-### Quick Bug Fix
-
+Now you can use shortcuts:
 ```bash
-# Create a bug fix task
-rclaude run fix-user-validation
-
-# Run with notifications
-rclaude run fix-user-validation --notify-on-complete
+# Uses configuration from .remote-claude.json
+rclaude start
+rclaude task run test
 ```
 
-### Feature Development
+## Web Dashboard (Optional)
 
+For a visual interface:
+
+### 1. Clone and Setup
 ```bash
-# Interactive development session
-rclaude run add-payment-feature --interactive
-
-# Auto-commit and create PR
-rclaude run add-payment-feature --auto-commit --pull-request
+git clone https://github.com/yourusername/remote-claude
+cd remote-claude
+npm install
+cp .env.example .env
+# Edit .env with your API keys
 ```
 
-### Data Analysis
-
+### 2. Start the Dashboard
 ```bash
-# Long-running EC2 task
-rclaude run analyze-logs --provider ec2 --timeout 7200
-
-# Check progress
-rclaude status
+npm run dev
+# Open http://localhost:3000
 ```
 
-### Batch Processing
+### Dashboard Features
+- 📊 Visual session management
+- 💬 Real-time Claude chat interface
+- 📁 File browser with syntax highlighting
+- 📈 Task history and progress tracking
+- 💰 Usage and cost monitoring
+
+## Cost Management
+
+### Pricing Structure
+- **Active Sessions**: $0.10/hour
+- **Persistent Storage**: $5/month per repository
+- **Paused Sessions**: No charge
+
+### Cost-Saving Tips
 
 ```bash
-# Create multiple related tasks
-rclaude run test-suite-1
-rclaude run test-suite-2
-rclaude run test-suite-3
+# Pause when not actively working
+rclaude pause  # State preserved, billing stopped
 
-# Monitor all tasks
-rclaude status --all
+# Set auto-pause timeout
+rclaude config set autoPause 300  # Pause after 5 min idle
+
+# Use efficient commands
+rclaude run "Fix all bugs" --timeout 1800  # 30 min limit
+
+# Monitor usage
+rclaude usage
+# Shows: Hours used, Current cost, Projected monthly
 ```
 
-## Interactive Sessions
+## Advanced Features
 
-For debugging or exploratory work:
-
+### Persistent Sessions
 ```bash
-# Start interactive session
-rclaude run debug-issue --interactive
-
-# List active sessions
-rclaude session --list
-
-# Reconnect to session
-rclaude session --connect session-name
+# Work persists automatically
+rclaude run "Build authentication system"
+# ... power outage / connection lost ...
+rclaude resume  # Picks up exactly where you left off
 ```
 
-## Cost Optimization
-
-### For GitHub Codespaces
+### Multiple Repositories
 ```bash
-# Use smaller machines for simple tasks
-rclaude run simple-task --machine-type basicLinux32gb
-
-# Set idle timeout
-rclaude run task --idle-timeout 30
+# Work with multiple repos in one session
+rclaude repo add https://github.com/user/frontend
+rclaude repo add https://github.com/user/backend
+rclaude repo switch frontend
+rclaude run "Update API endpoints"
 ```
 
-### For AWS EC2
+### Environment Variables
 ```bash
-# Use spot instances (up to 90% savings)
-rclaude run task --ec2-spot
+# Set for current session
+rclaude env set DATABASE_URL "postgres://..."
+rclaude env set API_KEY "secret"
 
-# Use appropriate instance types
-rclaude run task --ec2-instance-type t3.micro
-
-# Check costs
-rclaude ec2 costs --detailed
+# List all variables
+rclaude env list
 ```
 
-## Notifications
-
-Set up notifications for long-running tasks:
-
+### Git Integration
 ```bash
-# Configure email
-rclaude config notify --email your@email.com
+# Claude can commit changes
+rclaude run "Fix bugs and commit with descriptive messages"
 
-# Configure Slack
-rclaude config notify --slack https://hooks.slack.com/...
-
-# Use with tasks
-rclaude run long-task --notify-on-complete --notify-on-fail
+# Create pull requests
+rclaude run "Implement feature X and create a PR"
 ```
 
 ## Troubleshooting
 
-### Task Creation Issues
-
-If a task ID already exists:
+### Session Won't Start
 ```bash
-# View existing task
-rclaude tasks --search my-task
+# Check your setup
+rclaude test --verbose
 
-# Choose a different ID
-rclaude run my-task-v2
+# Common fixes:
+rclaude config set E2B_API_KEY <new-key>  # Update API key
+rclaude cleanup                           # Clear corrupted state
 ```
 
-### Authentication Problems
-
+### Claude Not Responding
 ```bash
-# Check current auth
-rclaude config github
+# Check status
+rclaude status
 
-# Re-authenticate with GitHub CLI
-gh auth login
+# Restart session
+rclaude restart
 
-# Verify token permissions
-gh auth status
+# View logs
+rclaude logs --tail 50
 ```
 
-### Backend Issues
-
+### Files Not Persisting
 ```bash
-# For Codespaces
-gh codespace list
+# Force save
+rclaude save
 
-# For EC2
-aws sts get-caller-identity
-rclaude ec2 list
+# Check persistence status
+rclaude info
 ```
 
-## Next Steps
+### Connection Issues
+```bash
+# Use a different region
+rclaude config set region us-west-2
 
-Now that you're up and running:
+# Test connectivity
+rclaude test network
+```
 
-1. **Explore Advanced Features**
-   - [Task Management Guide](./tasks.md)
-   - [Backend Configuration](./backends.md)
-   - [Project Setup](./configuration.md)
+## Best Practices
 
-2. **Optimize Your Workflow**
-   - Create task templates for common operations
-   - Set up project-specific configurations
-   - Configure notifications for team collaboration
+### 1. Use Descriptive Task Descriptions
+```bash
+# ❌ Bad
+rclaude run "fix it"
 
-3. **Learn Best Practices**
-   - Use descriptive task IDs
-   - Set appropriate timeouts
-   - Choose the right backend for each task
-   - Leverage saved configurations
+# ✅ Good
+rclaude run "Fix the null pointer exception in UserService.getProfile() when user has no avatar"
+```
+
+### 2. Pause Sessions When Idle
+```bash
+# Configure auto-pause
+rclaude config set autoPause 300  # 5 minutes
+
+# Or manually pause
+rclaude pause
+```
+
+### 3. Save Frequently Used Tasks
+```bash
+rclaude task save daily-standup "Review recent commits, run tests, and summarize changes"
+rclaude task run daily-standup
+```
+
+### 4. Set Resource Limits
+```bash
+# Prevent runaway costs
+rclaude config set maxSessionHours 8
+rclaude config set maxMonthlyCost 50
+```
+
+## Command Reference
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `rclaude start` | Start new session | `rclaude start github.com/user/repo` |
+| `rclaude run` | Execute task | `rclaude run "Add tests"` |
+| `rclaude pause` | Pause session | `rclaude pause` |
+| `rclaude resume` | Resume session | `rclaude resume abc123` |
+| `rclaude stop` | Stop session | `rclaude stop` |
+| `rclaude list` | List sessions | `rclaude list --active` |
+| `rclaude task` | Manage tasks | `rclaude task save test "Run tests"` |
+| `rclaude config` | Configuration | `rclaude config set autoPause 300` |
+| `rclaude usage` | View usage | `rclaude usage --this-month` |
+| `rclaude help` | Get help | `rclaude help run` |
 
 ## Getting Help
 
-- Run `rclaude --help` for command help
-- Check our [FAQ](./faq.md)
-- Report issues on [GitHub](https://github.com/l2succes/remote-claude/issues)
-- Join our [Discord community](https://discord.gg/remote-claude)
+- 📚 **Documentation**: [docs.remoteclaude.com](https://docs.remoteclaude.com)
+- 💬 **Discord Community**: [discord.gg/remoteclaude](https://discord.gg/remoteclaude)
+- 🐛 **Report Issues**: [GitHub Issues](https://github.com/yourusername/remote-claude/issues)
+- 📧 **Email Support**: support@remoteclaude.com
+
+## Next Steps
+
+1. **Explore the CLI**: Run `rclaude help` for all commands
+2. **Set up the dashboard**: Get a visual interface for your sessions
+3. **Configure your project**: Create `.remote-claude.json` for project defaults
+4. **Join the community**: Share tips and get help on Discord
 
 ---
 
 **Happy coding with Remote Claude! 🚀**
+
+Built with ❤️ using [VibeKit](https://vibekit.io) for secure sandbox execution.

@@ -1,247 +1,216 @@
-# Remote Claude - Current Architecture & Components
+# Remote Claude - Current Architecture (VibeKit Migration)
 
 ## 🎯 Project Goal
-Enable developers to run Claude Code tasks remotely on scalable cloud infrastructure (AWS ECS/EC2) with a task-based workflow model.
+Enable developers to run Claude Code in persistent, configurable cloud environments using VibeKit's sandbox infrastructure.
 
-## 📊 Current Status & Problem
+## 📊 Current Status
 
-We've built several components but they're not fully integrated:
+### Migration from AWS ECS/EC2 to VibeKit
+We're pivoting from complex AWS infrastructure to VibeKit's simpler sandbox abstraction:
 
-1. **CLI Tool** (`rclaude`) - ✅ Works for basic ECS task management
-2. **ECS Backend** - ✅ Can spin up containers but limited execution
-3. **WebSocket Infrastructure** - ✅ Built but not integrated
-4. **Remote Claude Agent** - ✅ Built but not deployed
-5. **Docker Images** - ✅ Built but missing Claude Code
-6. **Web UI** - ❌ Not started
-7. **VibeKit Integration** - 🔄 Being evaluated as alternative
+**Previous Approach (Being Removed):**
+- ❌ AWS ECS cluster management
+- ❌ EC2 instance provisioning
+- ❌ Complex networking setup
+- ❌ Session Manager Plugin requirements
 
-## 🏗️ Architecture Overview
+**New Approach (VibeKit):**
+- ✅ E2B sandbox provider (primary)
+- ✅ Simple API abstraction
+- ✅ Built-in persistence
+- ✅ No infrastructure management
+
+## 🏗️ New Architecture with VibeKit
 
 ```
-┌──────────────────────────────────────────────────────────────────┐
-│                          USER MACHINE                            │
-├──────────────────────────────────────────────────────────────────┤
-│                                                                   │
-│  ┌─────────────┐      ┌──────────────┐      ┌──────────────┐   │
-│  │   CLI Tool  │      │   Web UI     │      │   VS Code    │   │
-│  │  (rclaude)  │      │  (planned)   │      │  Extension   │   │
-│  └──────┬──────┘      └──────┬───────┘      └──────┬───────┘   │
-│         │                     │                      │           │
-│         └─────────────────────┼──────────────────────┘           │
-│                               │                                  │
-│                        ┌──────▼───────┐                          │
-│                        │   REST API   │                          │
-│                        │  (planned)   │                          │
-│                        └──────┬───────┘                          │
-└───────────────────────────────┼──────────────────────────────────┘
-                                │
-                          ┌─────▼──────┐
-                          │  INTERNET  │
-                          └─────┬──────┘
-                                │
-┌───────────────────────────────┼──────────────────────────────────┐
-│                           AWS CLOUD                               │
-├───────────────────────────────────────────────────────────────────┤
-│                                                                   │
-│  ┌──────────────────────────────────────────────────────────┐    │
-│  │                    ECS CLUSTER                            │    │
-│  ├──────────────────────────────────────────────────────────┤    │
-│  │                                                           │    │
-│  │  ┌─────────────────────────────────────────────────┐     │    │
-│  │  │              ECS TASK (Container)                │     │    │
-│  │  ├─────────────────────────────────────────────────┤     │    │
-│  │  │                                                  │     │    │
-│  │  │  ┌──────────────┐      ┌───────────────────┐   │     │    │
-│  │  │  │ Claude Code  │◄────►│  Remote Claude    │   │     │    │
-│  │  │  │   (future)   │      │     Agent         │   │     │    │
-│  │  │  └──────────────┘      └─────────┬─────────┘   │     │    │
-│  │  │                                   │             │     │    │
-│  │  │         ┌─────────────────────────┼─────┐       │     │    │
-│  │  │         │      WebSocket Server   │     │       │     │    │
-│  │  │         │        (Port 8080)      ▼     │       │     │    │
-│  │  │  ┌──────┴────────┐    ┌─────────────────┐     │     │    │
-│  │  │  │ File System   │    │ Command         │     │     │    │
-│  │  │  │    API        │    │ Executor        │     │     │    │
-│  │  │  └───────────────┘    └─────────────────┘     │     │    │
-│  │  │                                                 │     │    │
-│  │  └─────────────────────────────────────────────────┘     │    │
-│  │                                                           │    │
-│  │  ┌─────────────────────────────────────────────────┐     │    │
-│  │  │         EC2 INSTANCE (t3.medium)                │     │    │
-│  │  │         - Hosts ECS Tasks                       │     │    │
-│  │  │         - Auto-scaling Group                    │     │    │
-│  │  └─────────────────────────────────────────────────┘     │    │
-│  │                                                           │    │
-│  └───────────────────────────────────────────────────────────┘    │
-│                                                                   │
-└───────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────┐
+│                    User Interface                       │
+│                  (Web UI / CLI)                         │
+└────────────────────────────────────────────────────────┘
+                           │
+                           ▼
+┌────────────────────────────────────────────────────────┐
+│                 Remote Claude API                       │
+│              (Next.js + TypeScript)                     │
+├────────────────────────────────────────────────────────┤
+│  • Session Management    • Task Management             │
+│  • Repository Management • Billing & Usage             │
+│  • User Authentication   • WebSocket Streaming         │
+└────────────────────────────────────────────────────────┘
+                           │
+                           ▼
+┌────────────────────────────────────────────────────────┐
+│                   VibeKit SDK                          │
+│            (Sandbox & Agent Abstraction)               │
+├────────────────────────────────────────────────────────┤
+│  • Sandbox Lifecycle     • Claude Integration          │
+│  • File Operations       • Command Execution           │
+│  • GitHub Integration    • Resource Management         │
+└────────────────────────────────────────────────────────┘
+                           │
+                           ▼
+┌────────────────────────────────────────────────────────┐
+│                 Sandbox Providers                       │
+├────────────────────────────────────────────────────────┤
+│    E2B Cloud    │    Daytona    │    Northflank       │
+└────────────────────────────────────────────────────────┘
 ```
 
-## 📦 Component Details
+## 📦 Component Status
 
-### 1. CLI Tool (`rclaude`)
-**Location**: `/src/cli/`
-**Status**: ✅ Functional
-**Purpose**: Command-line interface for managing remote tasks
+### ✅ Components to Keep
+1. **CLI Framework** (`/src/cli/`) - Adapt for VibeKit
+2. **Task Management** (`/src/services/tasks/`) - Repository-centric model
+3. **WebSocket Layer** (`/src/services/websocket/`) - For streaming
+4. **Web UI Structure** (`/website/`) - Next.js app
 
-**Working Commands**:
-- `rclaude init` - Initialize configuration
-- `rclaude run <task>` - Run a task (creates ECS container)
-- `rclaude ecs list` - List running tasks
-- `rclaude ecs stop` - Stop tasks
-- `rclaude websocket server` - Start WebSocket server (NEW)
+### ❌ Components to Remove
+1. **ECS Provider** (`/src/services/compute/providers/ecs-ec2/`) - Replace with VibeKit
+2. **EC2 Management** - No longer needed
+3. **AWS Infrastructure** - Handled by E2B
+4. **Session Manager Plugin** - Not required
 
-**Issues**:
-- Can create containers but can't execute commands inside them (Session Manager Plugin required)
-- No real-time communication with containers
+### 🆕 Components to Add
+1. **VibeKit Client** (`/src/core/vibekit/`) - ✅ Started
+2. **Session Manager** (`/src/core/sessions/`) - In progress
+3. **Repository Manager** (`/src/core/repositories/`) - Planned
+4. **Billing Integration** (`/src/core/billing/`) - Stripe
+5. **Database Layer** (`/src/core/database/`) - Supabase
 
-### 2. ECS Backend
-**Location**: `/src/services/compute/providers/ecs-ec2/`
-**Status**: ✅ Partially working
-**Purpose**: Manage AWS ECS tasks and EC2 instances
+## 🔄 Migration Progress
 
-**What Works**:
-- Creates ECS cluster with EC2 instances
-- Launches ECS tasks (containers)
-- Interactive terminal connection (requires Session Manager Plugin)
+### Phase 1: Foundation (Week 1) ✅
+- [x] Create comprehensive PRD
+- [x] Design migration plan
+- [x] Set up development environment
+- [x] Initialize VibeKit integration
 
-**What Doesn't**:
-- Non-interactive command execution
-- Real-time streaming of outputs
-- File synchronization
+### Phase 2: Core Integration (Week 2) 🔄
+- [x] Remove AWS/ECS code
+- [x] Install VibeKit dependencies
+- [x] Create VibeKit client wrapper
+- [ ] Implement session manager
+- [ ] Build repository manager
+- [ ] Set up Supabase database
 
-### 3. Remote Claude Agent (NEW)
-**Location**: `/packages/remote-claude-agent/`
-**Status**: ✅ Built, not deployed
-**Purpose**: Runs inside containers to provide WebSocket API for file/command operations
+### Phase 3: API & Features (Week 3)
+- [ ] Build REST API endpoints
+- [ ] Implement WebSocket streaming
+- [ ] Add billing with Stripe
+- [ ] Create basic web UI
+- [ ] Update CLI commands
 
-**Components**:
+### Phase 4: Testing & Launch (Week 4)
+- [ ] Comprehensive testing
+- [ ] Documentation update
+- [ ] Deploy to production
+- [ ] Launch marketing site
+
+## 🚀 Current Implementation
+
+### VibeKit Client (`/src/core/vibekit/client.ts`)
+```typescript
+export class VibeKitClient {
+  // Core methods implemented
+  async createSession(repository: string): Promise<Session>
+  async executeCommand(command: string): Promise<CommandResult>
+  async readFile(path: string): Promise<string>
+  async writeFile(path: string, content: string): Promise<void>
+  async pauseSession(): Promise<void>
+  async resumeSession(sessionId: string): Promise<void>
+}
 ```
-packages/remote-claude-agent/
-├── src/
-│   ├── agent.ts           # WebSocket server
-│   ├── client.ts          # Client library
-│   └── services/
-│       ├── file-system.ts     # File operations
-│       ├── command-executor.ts # Command execution
-│       └── stream-manager.ts   # Stream handling
+
+### Session Flow
+1. **User starts session**: `rclaude start github.com/user/repo`
+2. **VibeKit creates sandbox**: E2B provisions container
+3. **Repository cloned**: Git operations in sandbox
+4. **Claude Code runs**: Tasks executed with AI
+5. **State persisted**: Files saved to cloud storage
+6. **Session paused/resumed**: State maintained
+
+## 💰 Cost Model
+
+### Per-Session Economics
+```
+E2B Sandbox:     $0.04/hour
+Claude API:      $0.02/hour
+Infrastructure:  $0.01/hour
+─────────────────────────
+Total Cost:      $0.07/hour
+Selling Price:   $0.10/hour
+Gross Margin:    30%
 ```
 
-**Features**:
-- WebSocket server on port 8080
-- File system operations (read/write/delete/watch)
-- Command execution with streaming
-- Health check endpoints
+### Pricing Tiers
+- **Active Sessions**: $0.10/hour
+- **Persistent Storage**: $5/month per repository
+- **Paused Sessions**: No charge
 
-**Integration Status**: 
-- ❌ Not published to npm
-- ❌ Not included in Docker image
-- ❌ Not connected to CLI
+## 🎯 Next Steps
 
-### 4. Docker Image
-**Location**: `/Dockerfile`
-**Status**: ✅ Built
-**Purpose**: Container image for running tasks
+### Immediate (Today)
+1. Complete session manager implementation
+2. Create repository manager
+3. Set up Supabase schema
 
-**Current State**:
-- Base Node.js 20 environment
-- Development tools installed
-- Agent integration prepared (but not active)
-- Missing Claude Code CLI
+### This Week
+1. Build API endpoints
+2. Implement WebSocket streaming
+3. Create billing integration
+4. Update CLI commands
 
-### 5. WebSocket Infrastructure
-**Location**: `/src/services/websocket/`
-**Status**: ✅ Built
-**Purpose**: Real-time communication between CLI and containers
+### Next Week
+1. Build web dashboard
+2. Add authentication
+3. Deploy to staging
+4. Begin testing
 
-**Components**:
-- `ecs-exec-websocket.ts` - WebSocket server/client for ECS Exec
-- CLI command: `rclaude websocket server`
-
-## 🔄 Current Workflow (What Should Happen)
-
-1. **User runs task**: `rclaude run "fix authentication bug"`
-2. **CLI creates ECS task**: Container starts with Docker image
-3. **Agent starts in container**: WebSocket server on port 8080
-4. **CLI connects to agent**: Via WebSocket through ECS networking
-5. **Claude Code executes**: Agent provides file/command access
-6. **Real-time updates**: Stream back to CLI via WebSocket
-7. **Task completes**: Results saved, container cleaned up
-
-## ❌ Current Blockers
-
-1. **Claude Code not available**: We're building infrastructure for a tool we don't have
-2. **Agent not deployed**: Built but not in Docker image or npm
-3. **No WebSocket routing**: Can't connect CLI to container's WebSocket
-4. **Session Manager Plugin**: Required for ECS Exec, not user-friendly
-5. **No REST API**: Web UI has nothing to connect to
-
-## 🎯 Immediate Next Steps
-
-### Option A: Fix Current Architecture
-1. Publish agent to npm: `@remote-claude/agent`
-2. Include agent in Docker image
-3. Set up WebSocket proxy/tunneling for container access
-4. Build REST API for web UI
-5. Create basic web UI
-
-### Option B: Switch to VibeKit
-1. Complete VibeKit POC (TASK-005)
-2. Compare costs with ECS
-3. Potentially simpler architecture:
-   - VibeKit handles container management
-   - Built-in code execution
-   - May not need custom agent
-
-## 📝 Key Decisions Needed
-
-1. **Continue with ECS or switch to VibeKit?**
-   - ECS: More control, more complex
-   - VibeKit: Simpler, less control
-
-2. **How to handle Claude Code availability?**
-   - Mock it for now?
-   - Wait for official release?
-   - Use alternative AI coding tool?
-
-3. **WebSocket routing strategy?**
-   - ECS Service Connect?
-   - Application Load Balancer with WebSocket support?
-   - SSH tunneling?
-
-## 📂 Repository Structure
+## 📂 New Repository Structure
 
 ```
 remote-claude/
-├── src/                      # Main application code
-│   ├── cli/                  # CLI commands
-│   ├── services/             # Core services
-│   │   ├── compute/          # ECS/EC2 providers
-│   │   └── websocket/        # WebSocket infrastructure
-│   └── utils/                # Utilities
-├── packages/                 # Subpackages
-│   └── remote-claude-agent/  # Container agent (NEW)
-├── docs/                     # Documentation
-├── tasks/                    # Task tracking
-├── website/                  # Marketing website
-└── Dockerfile               # Container image
+├── src/
+│   ├── core/              # Core business logic
+│   │   ├── vibekit/       # VibeKit integration ✅
+│   │   ├── sessions/      # Session management 🔄
+│   │   ├── repositories/  # Repository management
+│   │   ├── billing/       # Stripe integration
+│   │   └── database/      # Supabase layer
+│   ├── api/               # REST API endpoints
+│   ├── cli/               # CLI commands (updated)
+│   └── utils/             # Shared utilities
+├── website/               # Next.js web app
+├── docs/                  # Documentation ✅
+└── tests/                 # Test suites
 ```
 
-## 🚀 To Continue Development
+## 🔑 Key Decisions Made
 
-Based on where we are, the most logical next steps are:
+1. **VibeKit over AWS ECS**: Simpler, faster to market
+2. **E2B as primary provider**: Best Claude Code support
+3. **Repository-centric model**: One container per repo
+4. **Supabase for database**: Includes auth & real-time
+5. **Stripe for billing**: Industry standard
+6. **Next.js 14**: Modern React framework
 
-1. **Decide on VibeKit**: Run the POC to see if it's simpler
-2. **If staying with ECS**: 
-   - Solve WebSocket routing
-   - Deploy the agent
-   - Build REST API
-3. **If switching to VibeKit**:
-   - Complete integration
-   - Simplify architecture
-   - Remove unnecessary components
+## 📊 Success Metrics
 
-The core issue is we're building infrastructure for Claude Code which isn't available yet. We need to either:
-- Mock Claude Code functionality for testing
-- Pivot to use available AI coding tools
-- Wait for Claude Code release
+### Technical
+- Session start time < 30s
+- Command latency < 100ms
+- 99.9% uptime
+
+### Business
+- $1,000 MRR in 3 months
+- 50 active users
+- 30% gross margin
+
+## 🚦 Status Summary
+
+**Migration Status**: 🟡 In Progress (Week 2 of 4)
+**Blockers**: None currently
+**Risk Level**: Low
+**Confidence**: High
+
+The pivot to VibeKit significantly simplifies our architecture and reduces time to market from 3 months to 4 weeks.
