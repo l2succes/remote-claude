@@ -1,0 +1,4 @@
+[submodule "vibekit"]
+	path = vibekit
+	url = git@github.com:l2succes/vibekit.git
+	branch = fix/claude-docker-installation
