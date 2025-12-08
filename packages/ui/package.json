@@ -1,0 +1,24 @@
+{
+  "name": "@remote-claude/ui",
+  "version": "0.1.0",
+  "description": "UI components for Remote Claude",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist",
+    "test": "bun test",
+    "lint": "eslint src --ext .ts"
+  },
+  "dependencies": {
+    "chalk": "^4.1.2",
+    "inquirer": "^8.2.6",
+    "ora": "^5.4.1"
+  },
+  "devDependencies": {
+    "@types/inquirer": "^8.2.10",
+    "@types/node": "^20.10.4",
+    "typescript": "^5.3.3"
+  }
+}

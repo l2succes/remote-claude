@@ -90,8 +90,7 @@ remote-claude/
 │   ├── workflows/             # CI/CD workflows
 │   └── CODEOWNERS
 │
-├── package.json               # Root package.json
-├── pnpm-workspace.yaml        # pnpm workspace config
+├── package.json               # Root package.json (with workspaces)
 ├── turbo.json                 # Turborepo config
 ├── tsconfig.json              # Root TypeScript config
 └── README.md
@@ -100,39 +99,82 @@ remote-claude/
 ## Migration Plan from Current Structure
 
 ### Current Structure Analysis
+
+The repository currently follows a traditional single-package structure with a separate website:
+
 ```
 remote-claude/
-├── src/
-│   ├── cli/                   # → Move to apps/cli/src
-│   ├── services/              # → Move to packages/core/src
-│   ├── tasks/                 # → Move to packages/core/src/tasks
-│   ├── compute/               # → Move to packages/core/src/providers
+├── src/                       # All source code in single directory
+│   ├── cli.ts                 # Main CLI entry point → apps/cli/src/index.ts
+│   ├── cli/                   # CLI-specific code
+│   │   ├── commands/          # → Move to apps/cli/src/commands
+│   │   └── utils/             # → Move to apps/cli/src/utils
 │   ├── codespace/             # → Move to packages/core/src/providers/codespace
-│   └── utils/                 # → Split between apps/cli/src/utils and packages/core/src/utils
-├── website/                   # → Move to apps/web
-└── docs/                      # → Keep as docs/
+│   ├── compute/               # → Move to packages/core/src/compute
+│   ├── notifications/         # → Move to services/notifications/src
+│   ├── services/              # Business logic
+│   │   └── compute/           # → Move to packages/core/src/services
+│   ├── tasks/                 # → Move to packages/core/src/tasks
+│   ├── types/                 # → Move to packages/core/src/types
+│   ├── utils/                 # → Split between packages based on usage
+│   └── webhook/               # → Move to services/webhook/src
+├── website/                   # Next.js documentation site → apps/web
+├── docs/                      # Keep as docs/
+├── scripts/                   # Keep as scripts/
+├── package.json              # Single package configuration
+└── yarn.lock                 # Using Yarn 1.x
 ```
+
+**Key Facts:**
+- Single npm package: `remote-claude` v0.1.0
+- Using Yarn 1.x as package manager
+- No workspace configuration
+- Website is a separate Next.js app with its own package.json
+- Mixed dependencies (CLI, web, API) in single package.json
+
+### Current Dependencies Analysis
+
+The main package.json contains mixed dependencies that should be split:
+
+**CLI Dependencies:**
+- `commander`, `inquirer`, `chalk`, `ora` - CLI interface
+- `keytar` - Credential storage
+- `cosmiconfig` - Configuration management
+
+**Infrastructure/Provider Dependencies:**
+- `@aws-sdk/client-ec2`, `@aws-sdk/client-ssm` - AWS providers
+- `ssh2`, `node-forge` - SSH connectivity
+
+**API/Backend Dependencies:**
+- `express`, `ws` - API server and WebSocket
+- `axios` - HTTP client
+- `nodemailer` - Email notifications
+
+**Web/Documentation Dependencies:**
+- `@mdx-js/*`, `@next/mdx` - MDX processing
+- `next-mdx-remote`, `gray-matter` - Content management
+- `rehype-*`, `remark-*` - Markdown processing
+- `highlight.js` - Syntax highlighting
+
+**Shared Dependencies:**
+- `uuid`, `handlebars` - Utilities
+- TypeScript and testing tools
 
 ### Step-by-Step Migration
 
 #### Phase 1: Set up Monorepo Tools
 ```bash
-# Install pnpm (better for monorepos than npm)
-npm install -g pnpm
+# Install bun (fast all-in-one toolkit)
+curl -fsSL https://bun.sh/install | bash
 
-# Initialize pnpm workspace
-pnpm init
+# Initialize workspace with bun
+bun init
 
-# Create pnpm-workspace.yaml
-cat > pnpm-workspace.yaml << EOF
-packages:
-  - 'apps/*'
-  - 'packages/*'
-  - 'services/*'
-EOF
+# Update package.json with workspaces
+# Bun uses package.json workspaces field instead of separate config
 
 # Install Turborepo for build orchestration
-pnpm add -D turbo
+bun add -D turbo
 
 # Create turbo.json
 cat > turbo.json << EOF
@@ -204,15 +246,13 @@ export * from './fly/fly-provider'
 export * from './provider-factory'
 ```
 
-2. **Update CLI to use Core**
+2. **Update CLI to use Core with Absolute Imports**
 ```typescript
 // apps/cli/src/commands/run.ts
-import { 
-  ProviderFactory, 
-  TaskManager,
-  TaskRegistry 
-} from '@remote-claude/core'
-import { ConfigManager } from '@remote-claude/config'
+import { ProviderFactory, TaskManager, TaskRegistry } from '@remote-claude/core';
+import { ConfigManager } from '@remote-claude/config';
+import { parseArgs, validateOptions } from '@cli/utils';
+import { displayProgress } from '@cli/ui/progress';
 ```
 
 3. **Create API Server**
@@ -267,9 +307,9 @@ export async function fetchTasks(): Promise<Task[]> {
     "dev": "turbo run dev",
     "test": "turbo run test",
     "lint": "turbo run lint",
-    "cli": "pnpm --filter @remote-claude/cli",
-    "api": "pnpm --filter @remote-claude/api",
-    "web": "pnpm --filter @remote-claude/web"
+    "cli": "bun --filter @remote-claude/cli",
+    "api": "bun --filter @remote-claude/api",
+    "web": "bun --filter @remote-claude/web"
   },
   "devDependencies": {
     "turbo": "latest",
@@ -278,14 +318,25 @@ export async function fetchTasks(): Promise<Task[]> {
 }
 ```
 
-2. **Update TypeScript Configs**
+2. **Update TypeScript Configs for Absolute Imports**
+
+**Root tsconfig.json:**
 ```json
-// tsconfig.json (root)
 {
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@remote-claude/*": ["packages/*/src"]
+      "@remote-claude/core": ["packages/core/src/index.ts"],
+      "@remote-claude/core/*": ["packages/core/src/*"],
+      "@remote-claude/config": ["packages/config/src/index.ts"],
+      "@remote-claude/config/*": ["packages/config/src/*"],
+      "@remote-claude/sdk": ["packages/sdk/src/index.ts"],
+      "@remote-claude/sdk/*": ["packages/sdk/src/*"],
+      "@remote-claude/ui": ["packages/ui/src/index.ts"],
+      "@remote-claude/ui/*": ["packages/ui/src/*"],
+      "@cli/*": ["apps/cli/src/*"],
+      "@api/*": ["apps/api/src/*"],
+      "@web/*": ["apps/web/*"]
     }
   },
   "references": [
@@ -300,73 +351,117 @@ export async function fetchTasks(): Promise<Task[]> {
 }
 ```
 
+**Package-specific tsconfig.json (e.g., apps/cli/tsconfig.json):**
+```json
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "composite": true,
+    "baseUrl": ".",
+    "paths": {
+      "@cli/*": ["./src/*"]
+    }
+  },
+  "include": ["src/**/*"],
+  "references": [
+    { "path": "../../packages/core" },
+    { "path": "../../packages/config" }
+  ]
+}
+```
+
+**Import Examples:**
+```typescript
+// In apps/cli/src/commands/run.ts
+import { ProviderFactory } from '@remote-claude/core';
+import { ConfigManager } from '@remote-claude/config';
+import { validateInput } from '@cli/utils/validation';
+import { logger } from '@cli/utils/logger';
+
+// In packages/core/src/providers/ec2.ts
+import { BaseProvider } from '@remote-claude/core/providers/base';
+import { EC2Config } from '@remote-claude/core/types';
+```
+
 ## Benefits of This Structure
 
 ### 1. **Clear Separation of Concerns**
-- Apps: Deployable units
-- Packages: Shared code
-- Services: Microservices
-- Infrastructure: IaC
+- **Apps**: Deployable units (CLI, API server, Web UI)
+- **Packages**: Shared code that multiple apps use
+- **Services**: Standalone microservices (webhooks, notifications)
+- **Infrastructure**: IaC for AWS, Fly.io deployments
 
 ### 2. **Independent Development**
-- Each package has its own version
-- Teams can work independently
-- Clear dependency graph
+- CLI team can work without affecting web UI
+- Provider implementations can evolve independently
+- Clear API boundaries between packages
 
 ### 3. **Better Build Performance**
-- Turborepo caches builds
-- Only rebuilds changed packages
-- Parallel builds
+- Turborepo caches builds intelligently
+- Only affected packages rebuild on changes
+- Parallel builds reduce CI/CD time
 
 ### 4. **Easier Testing**
-- Unit tests per package
+- Unit tests isolated per package
 - Integration tests in apps
+- Provider mocking simplified
 - E2E tests at root level
 
 ### 5. **Flexible Deployment**
-- Deploy apps independently
-- Share packages via npm
-- Microservices architecture ready
+- Deploy CLI independently from API
+- Share `@remote-claude/sdk` as public npm package
+- Scale services independently
+- Different deployment strategies per app
+
+### 6. **Developer Experience**
+- Better IDE support with TypeScript project references
+- Clean absolute imports: `@remote-claude/core` instead of `../../../core`
+- Focused development: work on one package at a time
+- Easier onboarding for new developers
+- Fast builds with Bun's native TypeScript support
+- Built-in test runner and bundler
 
 ## Development Workflow
 
 ### Local Development
 ```bash
 # Start everything
-pnpm dev
+bun dev
 
 # Start specific app
-pnpm dev --filter @remote-claude/web
+bun dev --filter @remote-claude/web
 
 # Run CLI locally
-pnpm --filter @remote-claude/cli dev
+bun run --filter @remote-claude/cli dev
 
 # Add dependency to a package
-pnpm add express --filter @remote-claude/api
+bun add express --filter @remote-claude/api
 ```
 
 ### Building
 ```bash
 # Build everything
-pnpm build
+bun run build
 
 # Build specific package and dependencies
-pnpm build --filter @remote-claude/core...
+bun run build --filter @remote-claude/core...
 
 # Build for production
-pnpm build && pnpm prune --prod
+bun run build
 ```
 
 ### Testing
 ```bash
 # Test everything
-pnpm test
+bun test
 
 # Test specific package
-pnpm test --filter @remote-claude/core
+bun test --filter @remote-claude/core
 
 # Watch mode
-pnpm test:watch
+bun test --watch
 ```
 
 ## CI/CD Integration
@@ -381,16 +476,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: pnpm/action-setup@v2
-      - uses: actions/setup-node@v3
+      - uses: oven-sh/setup-bun@v1
         with:
-          node-version: 18
-          cache: 'pnpm'
+          bun-version: latest
       
-      - run: pnpm install
-      - run: pnpm build
-      - run: pnpm test
-      - run: pnpm lint
+      - run: bun install
+      - run: bun run build
+      - run: bun test
+      - run: bun run lint
 ```
 
 ## Publishing Strategy
@@ -417,13 +510,57 @@ jobs:
 }
 ```
 
+## Migration Timeline
+
+### Phase 1: Foundation (Week 1)
+- Set up Bun workspaces and Turborepo
+- Create basic package structure
+- Move types to `@remote-claude/core`
+- Set up TypeScript project references with absolute imports
+
+### Phase 2: Core Extraction (Week 2)
+- Extract provider interfaces and implementations
+- Move task management to core
+- Create shared utilities package
+- Update imports across codebase
+
+### Phase 3: App Separation (Week 3)
+- Separate CLI into `apps/cli`
+- Create API server in `apps/api`
+- Move website to `apps/web`
+- Set up development scripts
+
+### Phase 4: Services & Polish (Week 4)
+- Extract notification service
+- Create webhook service
+- Add comprehensive tests
+- Update CI/CD pipelines
+
+## Important Considerations
+
+### 1. **Backward Compatibility**
+- Keep `rclaude` CLI command working
+- Maintain existing config file formats
+- Preserve GitHub Codespaces integration
+
+### 2. **Migration Risks**
+- Import path changes may break existing code
+- Dependency conflicts between packages
+- Build complexity increases initially
+
+### 3. **Mitigation Strategies**
+- Use git branches for experimental changes
+- Create migration scripts for import updates
+- Maintain comprehensive test coverage
+- Document all breaking changes
+
 ## Conclusion
 
 This monorepo structure provides:
 - Clear boundaries between components
-- Shared code reuse
-- Independent deployment
+- Shared code reuse without duplication
+- Independent deployment capabilities
 - Better developer experience
-- Scalable architecture
+- Scalable architecture for future growth
 
-The migration can be done incrementally, starting with extracting the core package and gradually moving other components.
+The migration can be done incrementally, starting with extracting the core package and gradually moving other components. Each phase should be tested thoroughly before moving to the next.

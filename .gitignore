@@ -59,6 +59,7 @@ test-results/
 
 # Temporary files
 tmp/
+temp/.turbo/
 temp/
 
 # Claude Flow generated files

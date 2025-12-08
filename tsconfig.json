@@ -1,35 +1,45 @@
 {
   "compilerOptions": {
-    "target": "ES2020",
+    "target": "ES2022",
     "module": "commonjs",
-    "lib": ["ES2020"],
-    "outDir": "./dist",
-    "rootDir": "./src",
+    "lib": ["ES2022"],
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "moduleResolution": "node",
+    "allowJs": true,
+    "noEmit": true,
+    "incremental": true,
+    "composite": true,
     "declaration": true,
     "declarationMap": true,
-    "sourceMap": true,
-    "removeComments": false,
-    "noImplicitAny": true,
-    "strictNullChecks": true,
-    "strictFunctionTypes": true,
-    "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true,
-    "noUncheckedIndexedAccess": true,
-    "exactOptionalPropertyTypes": false,
-    "resolveJsonModule": true,
-    "allowSyntheticDefaultImports": true
+    "baseUrl": ".",
+    "paths": {
+      "@remote-claude/core": ["packages/core/src/index.ts"],
+      "@remote-claude/core/*": ["packages/core/src/*"],
+      "@remote-claude/config": ["packages/config/src/index.ts"],
+      "@remote-claude/config/*": ["packages/config/src/*"],
+      "@remote-claude/sdk": ["packages/sdk/src/index.ts"],
+      "@remote-claude/sdk/*": ["packages/sdk/src/*"],
+      "@remote-claude/ui": ["packages/ui/src/index.ts"],
+      "@remote-claude/ui/*": ["packages/ui/src/*"],
+      "@cli/*": ["apps/cli/src/*"],
+      "@api/*": ["apps/api/src/*"],
+      "@web/*": ["apps/web/*"]
+    }
   },
-  "include": [
-    "src/**/*"
+  "references": [
+    { "path": "./apps/cli" },
+    { "path": "./apps/api" },
+    { "path": "./apps/web" },
+    { "path": "./packages/core" },
+    { "path": "./packages/config" },
+    { "path": "./packages/sdk" },
+    { "path": "./packages/ui" },
+    { "path": "./services/notifications" },
+    { "path": "./services/websocket" }
   ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "**/*.test.ts",
-    "**/*.spec.ts"
-  ]
+  "exclude": ["node_modules", "dist", ".next", "out"]
 }
