@@ -13,6 +13,8 @@ import { createSessionCommand } from './cli/commands/session';
 import { createEC2Command } from './cli/commands/ec2';
 import { createTasksCommand } from './cli/commands/tasks';
 import { createInitCommand } from './cli/commands/init';
+import { createInitDeploymentCommand } from './cli/commands/init-deployment';
+import { createECSCommand } from './cli/commands/ecs';
 
 const program = new Command();
 
@@ -23,6 +25,7 @@ program
 
 // Add commands
 program.addCommand(createInitCommand());
+program.addCommand(createInitDeploymentCommand());
 program.addCommand(createRunCommand());
 program.addCommand(createTasksCommand());
 program.addCommand(createStatusCommand());
@@ -32,6 +35,7 @@ program.addCommand(createLogsCommand());
 program.addCommand(createCancelCommand());
 program.addCommand(createSessionCommand());
 program.addCommand(createEC2Command());
+program.addCommand(createECSCommand());
 
 // Handle unknown commands
 program.on('command:*', () => {

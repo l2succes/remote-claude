@@ -91,7 +91,8 @@ export interface ComputeProvider {
 
 export enum ComputeProviderType {
   CODESPACE = 'codespace',
-  EC2 = 'ec2'
+  AWS = 'aws',
+  FLY = 'fly'
 }
 
 export interface ValidationResult {
@@ -116,6 +117,11 @@ export interface ComputeConfig {
   provider: ComputeProviderType
   codespace?: CodespaceConfig
   ec2?: EC2Config
+  aws?: {
+    mode: string
+    region: string
+  }
+  [key: string]: any  // For provider-specific configs
 }
 
 export interface CodespaceConfig {

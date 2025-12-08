@@ -1,10 +1,9 @@
 import { ComputeProvider } from '../types'
 import { ECSProvider, ECSProviderConfig } from './ecs-ec2/ecs-provider'
-import { EC2SharedProvider, SharedEC2Config } from './ec2-shared/ec2-shared-provider'
-import { Logger } from '../../utils/logger'
-import { Config } from '../../utils/config'
+import { Logger } from '../../../utils/logger'
+import { Config } from '../../../utils/config'
 
-export type ProviderType = 'ecs-ec2' | 'ec2-shared' | 'fly' | 'local'
+export type ProviderType = 'aws' | 'fly' | 'local'
 
 export interface ProviderConfig {
   type: ProviderType
@@ -38,8 +37,14 @@ export class ProviderFactory {
             this.providers.set(name, provider)
             this.logger.info(`Provider ${name} initialized successfully`)
           }
-        } catch (error) {
+        } catch (error: any) {
           this.logger.error(`Failed to initialize provider ${name}`, { error })
+          
+          // If AWS setup is required, don't try other providers
+          if (error.message === 'AWS_SETUP_REQUIRED') {
+            this.logger.info('AWS setup required. Stopping provider initialization.')
+            break
+          }
         }
       }
     }
@@ -59,6 +64,10 @@ export class ProviderFactory {
 
     const provider = this.providers.get(name)
     if (!provider) {
+      // Check if it's an AWS provider that failed to initialize
+      if (name === 'aws') {
+        throw new Error(`AWS provider '${name}' is not available. This usually means AWS is not properly configured or the infrastructure hasn't been deployed.`)
+      }
       throw new Error(`Provider ${name} not found or not initialized`)
     }
 
@@ -91,29 +100,20 @@ export class ProviderFactory {
 
   private static async createProvider(config: ProviderConfig): Promise<ComputeProvider | null> {
     switch (config.type) {
-      case 'ecs-ec2':
+      case 'aws':
+        // Always use ECS for AWS
         return new ECSProvider({
-          clusterName: Config.get('ecs.clusterName') || 'remote-claude',
+          clusterName: Config.get('aws.ecs.clusterName') || Config.get('ecs.clusterName') || 'remote-claude-cluster',
           region: Config.get('aws.region') || 'us-east-1',
-          subnetIds: Config.get('ecs.subnetIds') || [],
-          securityGroupIds: Config.get('ecs.securityGroupIds') || [],
-          instanceType: Config.get('ecs.instanceType') || 't3.medium',
+          subnetIds: Config.get('aws.ecs.subnetIds') || Config.get('ecs.subnetIds') || [],
+          securityGroupIds: Config.get('aws.ecs.securityGroupIds') || Config.get('ecs.securityGroupIds') || [],
+          instanceType: Config.get('aws.ecs.instanceType') || Config.get('ecs.instanceType') || 't3.medium',
           minInstances: Config.get('ecs.minInstances') || 1,
           maxInstances: Config.get('ecs.maxInstances') || 10,
           enableSpot: Config.get('ecs.enableSpot') || true,
           containerInsights: Config.get('ecs.containerInsights') || true,
           ...config.config,
         } as ECSProviderConfig)
-
-      case 'ec2-shared':
-        return new EC2SharedProvider({
-          enabled: true,
-          minInstances: Config.get('ec2.shared.minInstances') || 1,
-          maxInstances: Config.get('ec2.shared.maxInstances') || 5,
-          maxTasksPerInstance: Config.get('ec2.shared.maxTasksPerInstance') || 10,
-          instanceType: Config.get('ec2.shared.instanceType') || 't3.large',
-          ...config.config,
-        } as SharedEC2Config)
 
       case 'fly':
         // Placeholder for Fly.io provider
@@ -135,23 +135,13 @@ export class ProviderFactory {
     // Load from config file or environment
     const configs: Record<string, ProviderConfig> = {}
 
-    // ECS Provider
-    if (Config.get('providers.ecs.enabled') !== false) {
-      configs['ecs-ec2'] = {
-        type: 'ecs-ec2',
+    // AWS Provider (uses ECS)
+    if (Config.get('providers.aws.enabled') !== false) {
+      configs['aws'] = {
+        type: 'aws',
         enabled: true,
-        isDefault: Config.get('providers.default') === 'ecs-ec2',
-        config: Config.get('providers.ecs.config') || {},
-      }
-    }
-
-    // EC2 Shared Provider
-    if (Config.get('providers.ec2Shared.enabled') !== false) {
-      configs['ec2-shared'] = {
-        type: 'ec2-shared',
-        enabled: true,
-        isDefault: Config.get('providers.default') === 'ec2-shared',
-        config: Config.get('providers.ec2Shared.config') || {},
+        isDefault: Config.get('providers.default') === 'aws' || Config.get('defaultBackend') === 'aws',
+        config: Config.get('providers.aws.config') || {},
       }
     }
 
@@ -220,23 +210,18 @@ export class ProviderSelector {
       return 'fly'
     }
 
-    // GPU tasks need EC2
+    // GPU tasks need AWS
     if (task.requiresGPU) {
-      return providers.includes('ecs-ec2') ? 'ecs-ec2' : 'ec2-shared'
+      return providers.includes('aws') ? 'aws' : 'aws'
     }
 
-    // Budget-conscious tasks prefer shared EC2
-    if (task.budget && task.budget < 10 && providers.includes('ec2-shared')) {
-      return 'ec2-shared'
-    }
-
-    // Default to ECS for production workloads
-    if (providers.includes('ecs-ec2')) {
-      return 'ecs-ec2'
+    // Default to AWS for production workloads
+    if (providers.includes('aws')) {
+      return 'aws'
     }
 
     // Fallback to any available provider
-    return providers[0]
+    return providers[0] || 'aws'
   }
 
   static async getProviderCapabilities(providerName: string): Promise<{
@@ -249,7 +234,7 @@ export class ProviderSelector {
   }> {
     // Return capabilities based on provider type
     switch (providerName) {
-      case 'ecs-ec2':
+      case 'aws':
         return {
           supportsGPU: true,
           supportsSpot: true,
@@ -257,16 +242,6 @@ export class ProviderSelector {
           minDuration: 60, // 1 minute
           maxDuration: 86400, // 24 hours
           costPerHour: 0.10,
-        }
-
-      case 'ec2-shared':
-        return {
-          supportsGPU: false,
-          supportsSpot: true,
-          regions: ['us-east-1'],
-          minDuration: 60,
-          maxDuration: 86400,
-          costPerHour: 0.08,
         }
 
       case 'fly':

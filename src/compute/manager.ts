@@ -256,8 +256,8 @@ export class ComputeManager extends EventEmitter {
     switch (type) {
       case ComputeProviderType.CODESPACE:
         return this.config.codespace
-      case ComputeProviderType.EC2:
-        return this.config.ec2
+      case ComputeProviderType.AWS:
+        return this.config.aws
       default:
         return {}
     }

@@ -10,6 +10,7 @@ import {
   StopTaskCommand,
   ListTasksCommand,
   DescribeClustersCommand,
+  ListServicesCommand,
   TaskDefinition,
   Service,
   Task
@@ -25,10 +26,11 @@ import {
   CreateAutoScalingGroupCommand,
   UpdateAutoScalingGroupCommand
 } from '@aws-sdk/client-auto-scaling'
-import { ComputeProvider, TaskExecutionResult, ComputeSession } from '../../types'
-import { Logger } from '../../../utils/logger'
-import { Config } from '../../../utils/config'
+import { ComputeProvider, ComputeSession, SessionOptions, TaskResult } from '../../types'
+import { Logger } from '../../../../utils/logger'
+import { Config } from '../../../../utils/config'
 import { EventEmitter } from 'events'
+import { AWSSetupHelper } from '../../../../utils/aws-setup-helper'
 
 export interface ECSProviderConfig {
   clusterName: string
@@ -45,7 +47,7 @@ export interface ECSProviderConfig {
 }
 
 export class ECSProvider implements ComputeProvider {
-  readonly name = 'ecs-ec2'
+  readonly name = 'aws'
   private logger = new Logger('ECSProvider')
   private ecsClient: ECSClient
   private ec2Client: EC2Client
@@ -55,16 +57,29 @@ export class ECSProvider implements ComputeProvider {
   private clusterArn?: string
   private taskDefinitionArn?: string
   private repositoryServices: Map<string, string> = new Map() // repo -> service ARN
+  private sessionTaskMap: Map<string, string> = new Map() // sessionId -> taskArn
 
   constructor(config: ECSProviderConfig) {
     this.config = config
-    const awsConfig = {
-      region: config.region,
-      credentials: {
-        accessKeyId: Config.get('aws.accessKeyId'),
-        secretAccessKey: Config.get('aws.secretAccessKey'),
+    const awsConfig: any = {
+      region: config.region
+    }
+    
+    // Only add credentials if they are explicitly provided and valid
+    const accessKeyId = Config.get('aws.accessKeyId')
+    const secretAccessKey = Config.get('aws.secretAccessKey')
+    
+    if (accessKeyId && secretAccessKey) {
+      awsConfig.credentials = {
+        accessKeyId,
+        secretAccessKey
       }
     }
+    // Otherwise, let AWS SDK use its default credential provider chain:
+    // 1. Environment variables (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
+    // 2. Shared credentials file (~/.aws/credentials)
+    // 3. ECS/EC2 IAM roles
+    // 4. etc.
     
     this.ecsClient = new ECSClient(awsConfig)
     this.ec2Client = new EC2Client(awsConfig)
@@ -75,14 +90,25 @@ export class ECSProvider implements ComputeProvider {
   async initialize(): Promise<void> {
     this.logger.info('Initializing ECS provider', { config: this.config })
     
+    // Check AWS setup before proceeding
+    const setupOk = await AWSSetupHelper.performFullSetupCheck({
+      clusterName: this.config.clusterName,
+      region: this.config.region
+    })
+    
+    if (!setupOk) {
+      // User needs to set up AWS first
+      throw new Error('AWS_SETUP_REQUIRED')
+    }
+    
     // Create or verify ECS cluster
     await this.ensureCluster()
     
     // Create task definition
     await this.createTaskDefinition()
     
-    // Set up EC2 capacity provider
-    await this.setupEC2Capacity()
+    // Skip EC2 capacity setup - CloudFormation handles this
+    // await this.setupEC2Capacity()
     
     this.logger.info('ECS provider initialized successfully')
   }
@@ -133,7 +159,7 @@ export class ECSProvider implements ComputeProvider {
       id: options.taskId,
       provider: this.name,
       status: 'active',
-      startTime: new Date(),
+      createdAt: new Date(),
       metadata: {
         clusterArn: this.clusterArn,
         serviceArn,
@@ -144,6 +170,10 @@ export class ECSProvider implements ComputeProvider {
       }
     }
     
+    // Store the session-to-task mapping
+    // In a real implementation, this would be persisted
+    this.sessionTaskMap.set(options.taskId, taskArn)
+    
     this.logger.info('ECS session created', { 
       sessionId: session.id,
       serviceArn,
@@ -153,47 +183,35 @@ export class ECSProvider implements ComputeProvider {
     return session
   }
 
-  async executeTask(
-    sessionId: string,
-    command: string,
-    options?: Record<string, any>
-  ): Promise<TaskExecutionResult> {
-    this.logger.info('Executing task in ECS', { sessionId, command })
-    
-    // Use ECS Exec to run commands in container
-    const startTime = Date.now()
-    
-    try {
-      // This would use AWS SSM to execute commands
-      // For now, returning mock result
-      const result = await this.executeCommandInContainer(sessionId, command)
-      
-      return {
-        success: result.exitCode === 0,
-        output: result.stdout,
-        error: result.stderr,
-        executionTime: Date.now() - startTime,
-        metadata: {
-          exitCode: result.exitCode,
-          taskArn: result.taskArn,
-        }
-      }
-    } catch (error) {
-      this.logger.error('Task execution failed', { sessionId, error })
-      throw error
-    }
-  }
-
   async terminateSession(sessionId: string): Promise<void> {
     this.logger.info('Terminating ECS session', { sessionId })
     
-    // Remove task from service tracking
+    // Get the task ARN
+    const taskArn = this.sessionTaskMap.get(sessionId)
+    if (taskArn) {
+      try {
+        // Stop the ECS task
+        await this.ecsClient.send(new StopTaskCommand({
+          cluster: this.clusterArn,
+          task: taskArn,
+          reason: `Session ${sessionId} terminated`
+        }))
+        
+        this.logger.info('Stopped ECS task', { taskArn, sessionId })
+      } catch (error) {
+        this.logger.error('Failed to stop task', { error, taskArn, sessionId })
+      }
+      
+      // Remove from our map
+      this.sessionTaskMap.delete(sessionId)
+    }
+    
     // Service continues running for other tasks
     
     this.eventEmitter.emit('session:terminated', { sessionId })
   }
 
-  async getSessionStatus(sessionId: string): Promise<'active' | 'terminated' | 'unknown'> {
+  async getSessionStatus(sessionId: string): Promise<ComputeSession> {
     // Check task status in ECS
     try {
       const tasks = await this.ecsClient.send(new ListTasksCommand({
@@ -201,10 +219,92 @@ export class ECSProvider implements ComputeProvider {
         // Filter by task tag or metadata
       }))
       
-      return tasks.taskArns?.length > 0 ? 'active' : 'terminated'
+      const status = (tasks.taskArns?.length ?? 0) > 0 ? 'active' : 'terminated'
+      
+      return {
+        id: sessionId,
+        provider: this.name,
+        status: status as any,
+        metadata: {
+          clusterArn: this.clusterArn
+        }
+      }
     } catch (error) {
-      return 'unknown'
+      return {
+        id: sessionId,
+        provider: this.name,
+        status: 'error',
+        metadata: {
+          error: (error as Error).message
+        }
+      }
     }
+  }
+
+  async executeCommand(sessionId: string, command: string): Promise<TaskResult> {
+    this.logger.info('Executing command in ECS session', { sessionId, command })
+    
+    try {
+      const result = await this.executeCommandInContainer(sessionId, command)
+      
+      return {
+        success: result.exitCode === 0,
+        output: result.stdout,
+        error: result.stderr,
+        exitCode: result.exitCode
+      }
+    } catch (error) {
+      this.logger.error('Command execution failed', { error, sessionId })
+      return {
+        success: false,
+        output: '',
+        error: error instanceof Error ? error.message : 'Unknown error',
+        exitCode: 1
+      }
+    }
+  }
+
+  async listSessions(userId?: string): Promise<ComputeSession[]> {
+    const sessions: ComputeSession[] = []
+    
+    try {
+      // List all services in the cluster
+      const services = await this.ecsClient.send(new ListServicesCommand({
+        cluster: this.clusterArn
+      }))
+      
+      if (services.serviceArns) {
+        // Get tasks for each service
+        for (const serviceArn of services.serviceArns) {
+          const tasks = await this.ecsClient.send(new ListTasksCommand({
+            cluster: this.clusterArn,
+            serviceName: serviceArn
+          }))
+          
+          if (tasks.taskArns) {
+            for (const taskArn of tasks.taskArns) {
+              // Extract task ID from ARN
+              const taskId = taskArn.split('/').pop() || ''
+              
+              sessions.push({
+                id: taskId,
+                provider: this.name,
+                status: 'active',
+                metadata: {
+                  serviceArn,
+                  taskArn,
+                  clusterArn: this.clusterArn
+                }
+              })
+            }
+          }
+        }
+      }
+    } catch (error) {
+      this.logger.error('Failed to list sessions', { error })
+    }
+    
+    return sessions
   }
 
   // Private methods
@@ -216,7 +316,7 @@ export class ECSProvider implements ComputeProvider {
       }))
       
       if (response.clusters && response.clusters.length > 0) {
-        this.clusterArn = response.clusters[0].clusterArn
+        this.clusterArn = response.clusters[0]?.clusterArn || ''
         this.logger.info('Using existing cluster', { clusterArn: this.clusterArn })
       } else {
         throw new Error('Cluster not found')
@@ -232,7 +332,7 @@ export class ECSProvider implements ComputeProvider {
         capacityProviders: ['FARGATE', 'FARGATE_SPOT'],
       }))
       
-      this.clusterArn = createResponse.cluster?.clusterArn
+      this.clusterArn = createResponse.cluster?.clusterArn!
       this.logger.info('Created new cluster', { clusterArn: this.clusterArn })
     }
   }
@@ -240,55 +340,69 @@ export class ECSProvider implements ComputeProvider {
   private async createTaskDefinition(): Promise<void> {
     const taskDef = {
       family: 'remote-claude-task',
-      networkMode: 'awsvpc',
-      requiresCompatibilities: ['EC2'],
+      networkMode: 'awsvpc' as any, // AWS SDK type issue
+      requiresCompatibilities: ['EC2'] as any, // AWS SDK type issue
       cpu: '1024',
       memory: '2048',
       containerDefinitions: [{
         name: 'claude-code',
-        image: Config.get('ecs.containerImage') || 'anthropic/claude-code:latest',
+        image: Config.get('ecs.containerImage') || 'node:20-slim',
         essential: true,
         environment: [
           { name: 'PROVIDER', value: 'ecs' },
-          { name: 'REMOTE_CLAUDE', value: 'true' }
+          { name: 'REMOTE_CLAUDE', value: 'true' },
+          { name: 'CLAUDE_AUTO_START', value: 'true' }
         ],
+        command: ['/bin/bash', '-c', `
+          # Install Claude Code if not present
+          if ! command -v claude &> /dev/null; then
+            npm install -g @anthropic-ai/claude-code
+          fi
+          
+          # Create startup script
+          cat > /usr/local/bin/claude-start.sh << 'EOF'
+#!/bin/bash
+echo "🚀 Welcome to Remote Claude ECS Container!"
+echo "===================================="
+echo ""
+echo "Claude Code will start automatically..."
+echo ""
+
+# Start Claude Code
+exec claude
+EOF
+          
+          chmod +x /usr/local/bin/claude-start.sh
+          
+          # Keep container running and start Claude Code on connection
+          while true; do
+            sleep infinity
+          done
+        `],
         portMappings: [{
           containerPort: 8080,
-          protocol: 'tcp'
+          protocol: 'tcp' as any // AWS SDK type issue
         }],
         logConfiguration: {
-          logDriver: 'awslogs',
+          logDriver: 'awslogs' as any, // AWS SDK type issue
           options: {
             'awslogs-group': `/ecs/${this.config.clusterName}`,
             'awslogs-region': this.config.region,
             'awslogs-stream-prefix': 'claude-code'
           }
         },
-        mountPoints: [{
-          sourceVolume: 'workspace',
-          containerPath: '/workspace'
-        }],
+        // Removed mountPoints for now - would need EFS setup
         linuxParameters: {
           initProcessEnabled: true
         }
       }],
-      volumes: [{
-        name: 'workspace',
-        efsVolumeConfiguration: {
-          fileSystemId: Config.get('efs.fileSystemId'),
-          transitEncryption: 'ENABLED',
-          authorizationConfig: {
-            accessPointId: Config.get('efs.accessPointId'),
-            iam: 'ENABLED'
-          }
-        }
-      }],
-      executionRoleArn: Config.get('ecs.executionRoleArn'),
-      taskRoleArn: Config.get('ecs.taskRoleArn'),
+      // Removed volumes for now - would need EFS setup
+      executionRoleArn: Config.get('aws.ecs.executionRoleArn') || Config.get('ecs.executionRoleArn'),
+      taskRoleArn: Config.get('aws.ecs.taskRoleArn') || Config.get('ecs.taskRoleArn'),
     }
     
     const response = await this.ecsClient.send(new RegisterTaskDefinitionCommand(taskDef))
-    this.taskDefinitionArn = response.taskDefinition?.taskDefinitionArn
+    this.taskDefinitionArn = response.taskDefinition?.taskDefinitionArn!
     
     this.logger.info('Task definition created', { 
       taskDefinitionArn: this.taskDefinitionArn 
@@ -323,7 +437,7 @@ systemctl start amazon-ssm-agent
       LaunchTemplateName: `${this.config.clusterName}-template`,
       LaunchTemplateData: {
         ImageId: Config.get('ecs.amiId') || 'ami-0c02fb55956c7d316', // ECS-optimized AMI
-        InstanceType: this.config.instanceType,
+        InstanceType: this.config.instanceType as any, // AWS SDK type issue
         IamInstanceProfile: {
           Arn: Config.get('ecs.instanceProfileArn')
         },
@@ -396,15 +510,38 @@ systemctl start amazon-ssm-agent
   private async getOrCreateService(repository: string, branch?: string): Promise<string> {
     const repoKey = this.getRepoKey(repository)
     
-    // Check if service already exists
+    // Check if service already exists in our map
     const existingServiceArn = this.repositoryServices.get(repoKey)
     if (existingServiceArn) {
       return existingServiceArn
     }
     
-    // Create new service for this repository
+    // Check if service exists in ECS
     const serviceName = `claude-${repoKey}`
+    try {
+      const describeResponse = await this.ecsClient.send(new DescribeServicesCommand({
+        cluster: this.clusterArn,
+        services: [serviceName]
+      }))
+      
+      if (describeResponse.services && describeResponse.services.length > 0) {
+        const service = describeResponse.services[0]
+        if (service && service.status === 'ACTIVE' && service.serviceArn) {
+          // Service exists, cache it and return
+          this.repositoryServices.set(repoKey, service.serviceArn)
+          this.logger.info('Using existing ECS service', { 
+            repository, 
+            serviceArn: service.serviceArn 
+          })
+          return service.serviceArn
+        }
+      }
+    } catch (error) {
+      // Service doesn't exist, continue to create it
+      this.logger.debug('Service not found, will create new one', { serviceName })
+    }
     
+    // Create new service for this repository
     const response = await this.ecsClient.send(new CreateServiceCommand({
       cluster: this.clusterArn,
       serviceName,
@@ -415,7 +552,7 @@ systemctl start amazon-ssm-agent
         awsvpcConfiguration: {
           subnets: this.config.subnetIds,
           securityGroups: this.config.securityGroupIds,
-          assignPublicIp: 'ENABLED'
+          // assignPublicIp not supported for EC2 launch type
         }
       },
       placementStrategy: [
@@ -442,26 +579,168 @@ systemctl start amazon-ssm-agent
   }
 
   private async addTaskToService(serviceArn: string, taskId: string): Promise<string> {
-    // In ECS, services manage tasks automatically
-    // We'll track task associations separately
-    
-    // For now, return a mock task ARN
-    return `arn:aws:ecs:${this.config.region}:123456789:task/${taskId}`
+    // Run a new task in the service's cluster
+    try {
+      const runTaskResponse = await this.ecsClient.send(new RunTaskCommand({
+        cluster: this.clusterArn!,
+        taskDefinition: this.taskDefinitionArn!,
+        launchType: 'EC2',
+        networkConfiguration: {
+          awsvpcConfiguration: {
+            subnets: this.config.subnetIds,
+            securityGroups: this.config.securityGroupIds,
+          }
+        },
+        overrides: {
+          containerOverrides: [{
+            name: 'claude-code',
+            environment: [
+              { name: 'TASK_ID', value: taskId },
+              { name: 'SERVICE_ARN', value: serviceArn }
+            ]
+          }]
+        },
+        enableExecuteCommand: true, // Enable ECS Exec
+        propagateTags: 'TASK_DEFINITION',
+        tags: [
+          { key: 'TaskId', value: taskId },
+          { key: 'ServiceArn', value: serviceArn }
+        ]
+      }))
+      
+      if (!runTaskResponse.tasks || runTaskResponse.tasks.length === 0) {
+        // Check for failures
+        if (runTaskResponse.failures && runTaskResponse.failures.length > 0) {
+          const failure = runTaskResponse.failures[0]
+          const reason = failure?.reason || 'Unknown reason'
+          
+          if (reason === 'RESOURCE:MEMORY') {
+            throw new Error(
+              `Not enough memory available in ECS cluster. ` +
+              `The task requires 2GB but no EC2 instance has sufficient free memory. ` +
+              `Try: 1) Wait for running tasks to complete, 2) Add more EC2 instances to the cluster, ` +
+              `or 3) Use 'rclaude ecs list' to see running tasks and terminate unused ones.`
+            )
+          }
+          
+          throw new Error(`Failed to run ECS task: ${reason} - ${failure?.detail || 'No details'}`)
+        }
+        throw new Error('Failed to run ECS task: No tasks created')
+      }
+      
+      const taskArn = runTaskResponse.tasks[0]!.taskArn!
+      this.logger.info('Started ECS task', { taskArn, taskId })
+      
+      // Wait for task to be running
+      await this.waitForTaskRunning(taskArn)
+      
+      return taskArn
+    } catch (error) {
+      this.logger.error('Failed to run ECS task', { error, taskId, serviceArn })
+      throw error
+    }
   }
 
+  private async waitForTaskRunning(taskArn: string): Promise<void> {
+    const maxAttempts = 30 // 30 * 2 seconds = 1 minute
+    let attempts = 0
+    
+    while (attempts < maxAttempts) {
+      const response = await this.ecsClient.send(new DescribeTasksCommand({
+        cluster: this.clusterArn!,
+        tasks: [taskArn]
+      }))
+      
+      if (response.tasks && response.tasks.length > 0) {
+        const task = response.tasks[0]
+        if (task && task.lastStatus === 'RUNNING') {
+          this.logger.info('Task is running', { taskArn })
+          return
+        } else if (task && task.lastStatus === 'STOPPED') {
+          const reason = task.stoppedReason || 'Unknown reason'
+          throw new Error(`Task stopped: ${reason}`)
+        }
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, 2000))
+      attempts++
+    }
+    
+    throw new Error('Timeout waiting for task to start')
+  }
+  
   private async executeCommandInContainer(
     sessionId: string, 
     command: string
   ): Promise<any> {
-    // This would use ECS Exec (AWS SSM) to run commands
-    // Requires proper IAM roles and SSM agent in container
+    // Get the task ARN for this session
+    const taskArn = await this.getTaskArnForSession(sessionId)
     
-    return {
-      exitCode: 0,
-      stdout: 'Command executed successfully',
-      stderr: '',
-      taskArn: `arn:aws:ecs:${this.config.region}:123456789:task/${sessionId}`
+    if (!taskArn) {
+      throw new Error(`No task found for session ${sessionId}`)
     }
+    
+    // Import ECS Exec functionality
+    const { executeECSCommand } = await import('./ecs-exec')
+    
+    try {
+      const result = await executeECSCommand(this.ecsClient, {
+        cluster: this.clusterArn!,
+        task: taskArn,
+        container: 'claude-code',
+        command,
+        interactive: false
+      })
+      
+      return {
+        exitCode: result.exitCode,
+        stdout: result.stdout,
+        stderr: result.stderr,
+        taskArn
+      }
+    } catch (error) {
+      this.logger.error('Failed to execute command', { error, sessionId, command })
+      throw error
+    }
+  }
+  
+  private async getTaskArnForSession(sessionId: string): Promise<string | null> {
+    // First check our in-memory map
+    const cachedArn = this.sessionTaskMap.get(sessionId)
+    if (cachedArn) {
+      return cachedArn
+    }
+    
+    // Otherwise, try to find a task with the matching tag
+    const response = await this.ecsClient.send(new ListTasksCommand({
+      cluster: this.clusterArn,
+      desiredStatus: 'RUNNING'
+    }))
+    
+    if (!response.taskArns || response.taskArns.length === 0) {
+      return null
+    }
+    
+    // Get task details to find the one with our session ID
+    const tasks = await this.ecsClient.send(new DescribeTasksCommand({
+      cluster: this.clusterArn,
+      tasks: response.taskArns,
+      include: ['TAGS']
+    }))
+    
+    for (const task of tasks.tasks || []) {
+      const taskIdTag = task.tags?.find(tag => tag.key === 'TaskId')
+      if (taskIdTag?.value === sessionId) {
+        const taskArn = task.taskArn || null
+        if (taskArn) {
+          // Cache it for future use
+          this.sessionTaskMap.set(sessionId, taskArn)
+        }
+        return taskArn
+      }
+    }
+    
+    return null
   }
 
   private getRepoKey(repository: string): string {

@@ -36,7 +36,7 @@ import {
 
 export class EC2Provider extends EventEmitter implements ComputeProvider {
   readonly name = 'Amazon EC2'
-  readonly type = ComputeProviderType.EC2
+  readonly type = 'ec2' as any // Legacy provider
 
   private ec2Client: EC2Client
   private ssmClient: SSMClient
@@ -766,6 +766,52 @@ chown ec2-user:ec2-user /opt/remote-claude
 
 # Install Claude Code globally
 npm install -g @anthropic-ai/claude-code
+
+# Install ec2-metadata tool
+yum install -y ec2-instance-connect
+
+# Setup Claude Code auto-start for SSH sessions
+cat > /etc/profile.d/claude-autostart.sh << 'CLAUDE_EOF'
+#!/bin/bash
+# Claude Code auto-start script
+
+# Function to check if we're in an SSH session
+is_ssh_session() {
+    [ -n "\$SSH_CLIENT" ] || [ -n "\$SSH_TTY" ] || [ -n "\$SSH_CONNECTION" ]
+}
+
+# Function to check if Claude Code is installed
+is_claude_code_installed() {
+    command -v claude >/dev/null 2>&1
+}
+
+# Function to check if we're already in a Claude Code session
+is_claude_code_running() {
+    [ -n "\$CLAUDE_CODE_SESSION" ] || pgrep -f "claude.*code" >/dev/null 2>&1
+}
+
+# Auto-start Claude Code for SSH sessions
+if is_ssh_session && is_claude_code_installed && ! is_claude_code_running; then
+    echo "🚀 Starting Claude Code..."
+    echo ""
+    echo "Welcome to Remote Claude EC2 Instance!"
+    echo "======================================"
+    echo ""
+    echo "Available commands:"
+    echo "  claude         - Start Claude Code"
+    echo "  exit           - Exit Claude Code and return to shell"
+    echo "  Ctrl+C         - Interrupt current operation"
+    echo ""
+    
+    # Set environment variable to prevent recursive starts
+    export CLAUDE_CODE_SESSION=1
+    
+    # Start Claude Code
+    exec claude
+fi
+CLAUDE_EOF
+
+chmod +x /etc/profile.d/claude-autostart.sh
 
 # Setup auto-shutdown script
 cat > /opt/remote-claude/auto-shutdown.sh << 'EOF'

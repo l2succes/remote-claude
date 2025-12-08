@@ -33,6 +33,13 @@ This document tracks all major features and tasks for the Remote Claude project.
 
 ## 🚧 In Progress
 
+### Web Interface v0
+- [ ] Remote Claude Agent implementation (see [web-v0-todo.md](./docs/web-v0-todo.md))
+- [ ] Backend API with WebSocket proxy
+- [ ] Basic frontend with task management
+- [ ] Container integration with ECS Exec
+- [ ] Real-time terminal and file browser
+
 ### Website
 - [ ] Fix MDX documentation system
 - [ ] Complete docs migration
@@ -200,12 +207,12 @@ As requested, MCP (Model Context Protocol) management is a high priority feature
 - Modular architecture for easy extension
 
 ### Next Immediate Steps
-1. Complete ECS + EC2 provider implementation
-2. Set up ECS infrastructure in AWS
-3. Create API endpoints for UI
-4. Implement WebSocket infrastructure
-5. Start MCP management UI design
-6. Add Fly.io provider when credits are available
+1. Create remote-claude-agent package for containers
+2. Build Docker image with agent and Claude Code
+3. Implement ECS Exec for command execution
+4. Create backend API with WebSocket proxy
+5. Build minimal web UI for v0
+6. Test end-to-end workflow
 
 ## 🔗 Related Documents
 - [PRD.md](./PRD.md) - Product Requirements Document
