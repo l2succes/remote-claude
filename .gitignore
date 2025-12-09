@@ -9,6 +9,20 @@ dist/
 build/
 *.tsbuildinfo
 
+# Next.js
+.next/
+apps/web/.next/
+apps/*/.next/
+out/
+.vercel
+
+# Turbo
+.turbo/
+
+# Parcel
+.parcel-cache/
+.cache/
+
 # Runtime data
 pids
 *.pid
@@ -53,13 +67,18 @@ Thumbs.db
 .rcli/
 config.json
 
+# Workspace (container mount)
+workspace/
+
+# Docker volumes
+docker-data/
+
 # Test files
 test-results/
 *.test.js.map
 
 # Temporary files
 tmp/
-temp/.turbo/
 temp/
 
 # Claude Flow generated files

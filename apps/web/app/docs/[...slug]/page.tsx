@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
-import { getDocBySlug, getAllDocs, mdxOptions } from '@/lib/mdx'
+import { getDocBySlug, getAllDocs, mdxOptions } from '../../../lib/mdx'
 import { serialize } from 'next-mdx-remote/serialize'
-import MDXContent from '@/components/MDXContent'
+import MDXContent from '../../../components/MDXContent'
 
 export async function generateStaticParams() {
   const docs = await getAllDocs()

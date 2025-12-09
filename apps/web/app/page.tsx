@@ -1,5 +1,5 @@
-import Terminal from "@/components/Terminal";
-import AsciiLogo from "@/components/AsciiLogo";
+import Terminal from "../components/Terminal";
+import AsciiLogo from "../components/AsciiLogo";
 import Link from "next/link";
 import {
   FaGithub,
@@ -9,6 +9,7 @@ import {
   FaServer,
   FaTasks,
   FaBell,
+  FaTerminal,
 } from "react-icons/fa";
 
 export default function Home() {
@@ -22,6 +23,12 @@ export default function Home() {
               <h1 className="text-xl font-bold text-white">Claude Cloud</h1>
             </div>
             <div className="flex items-center space-x-4">
+              <Link
+                href="/claude"
+                className="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium flex items-center gap-2"
+              >
+                <FaTerminal /> Terminal
+              </Link>
               <Link
                 href="/docs"
                 className="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium flex items-center gap-2"

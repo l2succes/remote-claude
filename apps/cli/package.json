@@ -15,11 +15,14 @@
   "dependencies": {
     "@remote-claude/core": "workspace:*",
     "@remote-claude/config": "workspace:*",
+    "@remote-claude/shared": "workspace:*",
     "@remote-claude/ui": "workspace:*",
-    "commander": "^11.1.0"
+    "commander": "^11.1.0",
+    "ws": "^8.16.0"
   },
   "devDependencies": {
     "@types/node": "^20.10.4",
+    "@types/ws": "^8.5.10",
     "typescript": "^5.3.3"
   }
 }
