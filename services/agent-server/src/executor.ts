@@ -92,25 +92,25 @@ export class AgentExecutor {
     this.cancelled = false;
 
     // Dynamically import the SDK to handle cases where it might not be installed
-    let ClaudeSDKClient: any;
+    let sdk: any;
 
     try {
       // Dynamic import to handle SDK not being installed
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const sdk = await import('@anthropic-ai/claude-agent-sdk') as Record<string, unknown>;
-      // Try common export patterns: named export, default, or the module itself
-      ClaudeSDKClient = (sdk as any).ClaudeSDKClient
-        || (sdk as any).Claude
-        || (sdk as any).default?.ClaudeSDKClient
-        || (sdk as any).default?.Claude
-        || (sdk as any).default;
+      sdk = await import('@anthropic-ai/claude-agent-sdk') as Record<string, unknown>;
 
-      if (!ClaudeSDKClient || typeof ClaudeSDKClient !== 'function') {
-        throw new Error('Could not find Claude client class in SDK');
+      console.log('SDK imported, available methods:', Object.keys(sdk || {}));
+
+      // Check if we have the query function
+      if (!sdk || typeof sdk.query !== 'function') {
+        console.error('SDK structure:', sdk);
+        throw new Error(`Could not find query function in SDK. Available: ${Object.keys(sdk || {})}`);
       }
+
+      console.log('Claude Agent SDK loaded successfully');
     } catch (err) {
       // Fallback for development/testing without the SDK installed
-      console.warn('Claude Agent SDK not found, using mock implementation');
+      console.warn('Claude Agent SDK import error:', err);
+      console.warn('Using mock implementation');
       yield* this.mockExecute(prompt);
       return;
     }
@@ -146,32 +146,40 @@ export class AgentExecutor {
     // Set API key in environment
     process.env.ANTHROPIC_API_KEY = this.config.apiKey;
 
-    this.config.onProgress?.('initializing', 'Creating SDK client...');
+    this.config.onProgress?.('initializing', 'Calling Claude SDK...');
 
     try {
-      this.client = new ClaudeSDKClient(options);
-
       this.config.onProgress?.('processing', 'Sending query to Claude...');
 
-      // Send the query
-      await this.client.query(prompt);
+      // Use the functional API - query expects an object with prompt and options
+      const response = await sdk.query({
+        prompt: prompt,
+        options: options
+      });
 
-      // Process responses
-      for await (const message of this.client.receiveResponse()) {
-        if (this.cancelled) {
-          break;
+      // Check if response is iterable or a single response
+      if (response && typeof response[Symbol.asyncIterator] === 'function') {
+        // Process streaming responses
+        for await (const message of response) {
+          if (this.cancelled) {
+            break;
+          }
+
+          const processedResponse = this.processMessage(message);
+          if (processedResponse) {
+            yield processedResponse;
+          }
         }
-
-        const response = this.processMessage(message);
-        if (response) {
-          yield response;
+      } else if (response) {
+        // Process single response
+        const processedResponse = this.processMessage(response);
+        if (processedResponse) {
+          yield processedResponse;
         }
       }
     } finally {
-      // Cleanup
-      if (this.client && typeof this.client.close === 'function') {
-        await this.client.close();
-      }
+      // Cleanup if needed
+      console.log('Query completed');
     }
   }
 
