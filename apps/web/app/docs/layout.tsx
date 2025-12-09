@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { getAllDocs } from '@/lib/mdx'
+import { getAllDocs } from '../../lib/mdx'
 
 interface DocSection {
   title: string

@@ -13,12 +13,13 @@ import { createSessionCommand } from './commands/session';
 import { createEC2Command } from './commands/ec2';
 import { createTasksCommand } from './commands/tasks';
 import { createInitCommand } from './commands/init';
+import { createConnectCommand, createQueryCommand } from './commands/connect';
 
 const program = new Command();
 
 program
   .name('rclaude')
-  .description('Remote Claude CLI - Run Claude Code tasks remotely on GitHub Codespaces or AWS EC2')
+  .description('Remote Claude CLI - Run Claude Code tasks remotely on GitHub Codespaces, AWS EC2, or Azure ACI')
   .version(version);
 
 // Add commands
@@ -32,6 +33,8 @@ program.addCommand(createLogsCommand());
 program.addCommand(createCancelCommand());
 program.addCommand(createSessionCommand());
 program.addCommand(createEC2Command());
+program.addCommand(createConnectCommand());
+program.addCommand(createQueryCommand());
 
 // Handle unknown commands
 program.on('command:*', () => {

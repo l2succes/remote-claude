@@ -837,4 +837,70 @@ touch /opt/remote-claude/setup-complete
         return EnvironmentStatus.ERROR
     }
   }
+
+  /**
+   * Get the WebSocket endpoint for an EC2 instance running the agent server
+   *
+   * Note: This assumes the EC2 instance is running the agent server container
+   * on port 8080. Use this for Agent SDK v2 workflows.
+   */
+  async getWebSocketEndpoint(envId: string): Promise<string | null> {
+    try {
+      const instance = await this.getInstanceDetails(envId)
+
+      if (!instance.PublicIpAddress) {
+        return null
+      }
+
+      return `ws://${instance.PublicIpAddress}:8080`
+    } catch {
+      return null
+    }
+  }
+
+  /**
+   * Start the agent server container on an EC2 instance
+   *
+   * This installs Docker and runs the remote-claude-agent container,
+   * enabling WebSocket-based communication with the Agent SDK.
+   */
+  async startAgentServer(env: Environment, options: {
+    containerImage?: string;
+    anthropicApiKey?: string;
+  } = {}): Promise<string> {
+    const image = options.containerImage || 'ghcr.io/l2succes/remote-claude-agent:latest'
+    const apiKey = options.anthropicApiKey || process.env.ANTHROPIC_API_KEY
+
+    if (!apiKey) {
+      throw new Error('ANTHROPIC_API_KEY is required to start the agent server')
+    }
+
+    // Ensure Docker is installed and running
+    await this.executeCommandViaSSH(env, 'sudo systemctl start docker || true')
+
+    // Pull and run the agent server container
+    const runCommand = `sudo docker run -d --name remote-claude-agent \\
+      -p 8080:8080 \\
+      -e ANTHROPIC_API_KEY=${apiKey} \\
+      -e WORKING_DIR=/workspace \\
+      -v /tmp/workspace:/workspace \\
+      ${image}`
+
+    const result = await this.executeCommandViaSSH(env, runCommand)
+
+    if (result.exitCode !== 0) {
+      throw new Error(`Failed to start agent server: ${result.stderr}`)
+    }
+
+    // Return the container ID
+    return result.stdout.trim()
+  }
+
+  /**
+   * Stop the agent server container on an EC2 instance
+   */
+  async stopAgentServer(env: Environment): Promise<void> {
+    await this.executeCommandViaSSH(env, 'sudo docker stop remote-claude-agent || true')
+    await this.executeCommandViaSSH(env, 'sudo docker rm remote-claude-agent || true')
+  }
 }

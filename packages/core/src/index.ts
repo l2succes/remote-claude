@@ -28,6 +28,8 @@ export * from './types/notification-v2';
 // Provider exports
 export { CodespaceProvider } from './providers/compute/codespace-provider';
 export { EC2Provider } from './providers/compute/ec2-provider';
+export { AzureACIProvider } from './providers/compute/azure-aci-provider';
+export type { AzureACIConfig } from './providers/compute/azure-aci-provider';
 export { ComputeManager } from './providers/compute/manager';
 export * from './providers/compute/provider-factory';
 

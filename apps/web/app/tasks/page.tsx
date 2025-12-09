@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { TaskList, Task } from '@/components/TaskList'
+import { TaskList, Task } from '../../components/TaskList'
 import { motion } from 'framer-motion'
 import { FaPlus, FaRocket, FaClock, FaCheckCircle, FaTasks } from 'react-icons/fa'
 

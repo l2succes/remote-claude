@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
-import { TopBar } from '@/components/TopBar'
-import { TaskList } from '@/components/TaskList'
-import { ClaudeCodeView } from '@/components/ClaudeCodeView'
-import { TaskProgress } from '@/components/TaskProgress'
+import { TopBar } from '../../../components/TopBar'
+import { TaskList } from '../../../components/TaskList'
+import { ClaudeCodeView } from '../../../components/ClaudeCodeView'
+import { TaskProgress } from '../../../components/TaskProgress'
 import { motion } from 'framer-motion'
 
 // Mock data - in a real app, this would come from an API

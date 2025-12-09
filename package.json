@@ -1,5 +1,6 @@
 {
   "name": "remote-claude",
+  "version": "2.0.0",
   "private": true,
   "workspaces": [
     "apps/*",
@@ -8,17 +9,25 @@
     "infrastructure/*"
   ],
   "scripts": {
-    "dev": "turbo run dev",
-    "build": "turbo run build",
-    "test": "turbo run test",
-    "lint": "turbo run lint",
-    "clean": "turbo run clean",
+    "dev": "bun run --filter '*' dev",
+    "build": "bun run --filter '*' build",
+    "test": "bun run --filter '*' test",
+    "lint": "bun run --filter '*' lint",
+    "clean": "bun run --filter '*' clean",
     "cli": "bun run --filter @remote-claude/cli",
     "api": "bun run --filter @remote-claude/api",
-    "web": "bun run --filter @remote-claude/web"
+    "web": "bun run --filter @remote-claude/web",
+    "web:dev": "bun run --filter website dev",
+    "agent-server": "bun run --filter @remote-claude/agent-server",
+    "agent-server:start": "bun run --filter @remote-claude/agent-server start",
+    "agent-server:dev": "bun run --filter @remote-claude/agent-server start:dev",
+    "docker:build": "docker build -t remote-claude-agent -f container/Dockerfile .",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f agent",
+    "docker:dev": "docker-compose --profile dev up -d agent-dev"
   },
   "devDependencies": {
-    "turbo": "^2.0.0",
     "typescript": "^5.3.3"
   },
   "engines": {
