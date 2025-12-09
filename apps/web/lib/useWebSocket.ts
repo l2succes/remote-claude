@@ -139,7 +139,7 @@ export function useWebSocket({
       setError(err as Error)
       onError?.(err as Error)
     }
-  }, [url, reconnect, reconnectDelay, onMessage, onError, onOpen, onClose])
+  }, [url, reconnect, reconnectDelay, maxReconnectAttempts, maxReconnectDelay, onMessage, onError, onOpen, onClose])
 
   const disconnect = useCallback(() => {
     if (reconnectTimeoutRef.current) {
@@ -222,7 +222,7 @@ export function useWebSocket({
 
     // Start fresh connection
     connect()
-  }, [reconnectDelay, connect])
+  }, [reconnectDelay]) // Don't depend on connect to avoid circular dependency
 
   useEffect(() => {
     if (autoConnect) {
@@ -232,7 +232,7 @@ export function useWebSocket({
     return () => {
       disconnect()
     }
-  }, [autoConnect, connect, disconnect])
+  }, [autoConnect]) // Only depend on autoConnect, not the functions
 
   return {
     isConnected,
