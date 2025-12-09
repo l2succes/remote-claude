@@ -8,30 +8,32 @@ FROM node:20-slim AS builder
 
 WORKDIR /app
 
-# Install build dependencies
+# Install build dependencies and bun
 RUN apt-get update && apt-get install -y \
     python3 \
     make \
     g++ \
     git \
-    && rm -rf /var/lib/apt/lists/*
+    curl \
+    unzip \
+    && rm -rf /var/lib/apt/lists/* \
+    && curl -fsSL https://bun.sh/install | bash \
+    && ln -s /root/.bun/bin/bun /usr/local/bin/bun
 
-# Copy workspace configuration
-COPY package.json bun.lock* turbo.json ./
-COPY packages/shared/package.json ./packages/shared/
-COPY services/agent-server/package.json ./services/agent-server/
-
-# Install dependencies
-RUN npm install
-
-# Copy source code
-COPY packages/shared/ ./packages/shared/
-COPY services/agent-server/ ./services/agent-server/
+# Copy all workspace files for bun workspaces
+COPY package.json bun.lock* ./
+COPY packages/ ./packages/
+COPY services/ ./services/
+COPY apps/ ./apps/
 COPY tsconfig.json ./
 
-# Build packages
-RUN npm run build --workspace=@remote-claude/shared && \
-    npm run build --workspace=@remote-claude/agent-server
+# Install dependencies with bun
+RUN bun install --frozen-lockfile
+
+# Build only what we need
+RUN cd packages/shared && bun run build && \
+    cd ../.. && \
+    cd services/agent-server && bun run build
 
 # Production stage
 FROM node:20-slim
