@@ -508,11 +508,11 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ## 🔗 Links
 
-- [Documentation](./docs)
-- [API Reference](./docs/api.md)
-- [WebSocket Protocol](./docs/protocol.md)
-- [Provider Setup](./docs/providers.md)
-- [MCP Configuration](./docs/mcp.md)
+- [Documentation Index](./docs/index.md)
+- [Quick Start Guide](./docs/getting-started/QUICK_START.md)
+- [Architecture Overview](./docs/architecture/ARCHITECTURE.md)
+- [API Reference](./docs/api-reference.md)
+- [Configuration Guide](./docs/configuration/)
 
 ---
 
