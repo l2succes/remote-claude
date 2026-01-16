@@ -1,0 +1,44 @@
+# Supabase local development configuration
+
+project_id = "edinburgh"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage"]
+extra_search_path = ["public"]
+max_rows = 1000
+
+[auth]
+enabled = true
+site_url = "http://localhost:10050"
+additional_redirect_urls = ["http://localhost:10050"]
+jwt_expiry = 3600
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+enable_confirmations = false
+
+[auth.external.github]
+enabled = true
+client_id = "Ov23liWYwyU2Mw5SM4Lh"
+secret = "83baeec8abb4a47c5da9d9638791821b683f9924"
+redirect_uri = "http://localhost:54321/auth/v1/callback"
+
+[db]
+port = 54322
+major_version = 17
+
+[db.pooler]
+enabled = false
+
+[realtime]
+enabled = true
+
+[studio]
+enabled = true
+port = 54323
+
+[storage]
+enabled = true

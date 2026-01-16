@@ -1,6 +1,11 @@
+'use client'
+
 import Terminal from "@/components/Terminal";
 import AsciiLogo from "@/components/AsciiLogo";
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   FaGithub,
   FaBook,
@@ -12,6 +17,43 @@ import {
 } from "react-icons/fa";
 
 export default function Home() {
+  const router = useRouter()
+  const [user, setUser] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const supabase = createClient()
+
+    // Check if user is already authenticated
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setUser(user)
+      setLoading(false)
+    })
+  }, [])
+
+  const handleGitHubSignIn = async () => {
+    const supabase = createClient()
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'github',
+      options: {
+        redirectTo: `${window.location.origin}/workspaces`,
+        scopes: 'repo read:user',
+      },
+    })
+
+    if (error) {
+      console.error('Error signing in:', error)
+      alert('Failed to sign in with GitHub: ' + error.message)
+    }
+  }
+
+  const handleSignOut = async () => {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    setUser(null)
+  }
+
   return (
     <main className="min-h-screen bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900">
       {/* Navigation */}
@@ -22,6 +64,12 @@ export default function Home() {
               <h1 className="text-xl font-bold text-white">Claude Cloud</h1>
             </div>
             <div className="flex items-center space-x-4">
+              <Link
+                href="/workspaces"
+                className="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium flex items-center gap-2"
+              >
+                <FaTasks /> Workspaces
+              </Link>
               <Link
                 href="/docs"
                 className="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium flex items-center gap-2"
@@ -36,6 +84,23 @@ export default function Home() {
               >
                 <FaGithub /> GitHub
               </a>
+              {!loading && (
+                user ? (
+                  <button
+                    onClick={handleSignOut}
+                    className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-md text-sm font-medium"
+                  >
+                    Sign Out
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleGitHubSignIn}
+                    className="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2"
+                  >
+                    <FaGithub /> Sign In
+                  </button>
+                )
+              )}
             </div>
           </div>
         </div>
@@ -57,9 +122,24 @@ export default function Home() {
               when tasks complete.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              {user ? (
+                <Link
+                  href="/workspaces"
+                  className="inline-flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white font-semibold py-3 px-6 rounded-lg transition-all hover:scale-105 hover:shadow-lg hover:shadow-primary-600/25"
+                >
+                  <FaTasks /> Go to Workspaces
+                </Link>
+              ) : (
+                <button
+                  onClick={handleGitHubSignIn}
+                  className="inline-flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white font-semibold py-3 px-6 rounded-lg transition-all hover:scale-105 hover:shadow-lg hover:shadow-primary-600/25"
+                >
+                  <FaGithub /> Continue with GitHub
+                </button>
+              )}
               <Link
                 href="/docs/quick-start"
-                className="inline-flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white font-semibold py-3 px-6 rounded-lg transition-all hover:scale-105 hover:shadow-lg hover:shadow-primary-600/25"
+                className="inline-flex items-center gap-2 bg-accent-600 hover:bg-accent-700 text-white font-semibold py-3 px-6 rounded-lg transition-all hover:scale-105 hover:shadow-lg hover:shadow-accent-600/25"
               >
                 <FaRocket /> Get Started
               </Link>

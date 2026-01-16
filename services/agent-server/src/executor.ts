@@ -116,7 +116,7 @@ export class AgentExecutor {
     }
 
     // Build SDK options
-    const options: ClaudeAgentOptions = {
+    const options: any = {
       systemPrompt: this.config.systemPrompt,
       maxTurns: this.config.maxTurns || 50,
       allowedTools: this.config.allowedTools || [
@@ -129,6 +129,9 @@ export class AgentExecutor {
       disallowedTools: this.config.disallowedTools,
       permissionMode: this.config.permissionMode || 'acceptEdits',
       cwd: this.config.workingDirectory,
+      // Explicitly set the node executable path to fix spawn ENOENT error
+      // Use process.execPath which gives the absolute path to the node binary
+      executable: process.execPath || '/Users/luc/.nvm/versions/node/v20.19.6/bin/node',
     };
 
     // Add MCP servers if configured

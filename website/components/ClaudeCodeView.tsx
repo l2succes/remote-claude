@@ -7,6 +7,8 @@ import {
   FaPlay, FaFile, FaFolder, FaEdit
 } from 'react-icons/fa'
 
+import type { Workspace, Task } from '@/lib/supabase/client'
+
 interface Message {
   id: string
   role: 'user' | 'assistant' | 'system'
@@ -20,21 +22,19 @@ interface Message {
 }
 
 interface ClaudeCodeViewProps {
-  taskId: string
-  taskName: string
-  repository: string
-  onSendMessage: (message: string) => void
+  workspace: Workspace
+  task: Task | null
   messages: Message[]
   isStreaming: boolean
+  onStartTask: (prompt: string) => void
 }
 
 export function ClaudeCodeView({
-  taskId,
-  taskName,
-  repository,
-  onSendMessage,
+  workspace,
+  task,
   messages,
-  isStreaming
+  isStreaming,
+  onStartTask
 }: ClaudeCodeViewProps) {
   const [input, setInput] = useState('')
   const [viewMode, setViewMode] = useState<'chat' | 'split-terminal' | 'split-editor'>('chat')
@@ -48,7 +48,7 @@ export function ClaudeCodeView({
 
   const handleSubmit = () => {
     if (input.trim() && !isStreaming) {
-      onSendMessage(input.trim())
+      onStartTask(input.trim())
       setInput('')
     }
   }
@@ -68,7 +68,7 @@ export function ClaudeCodeView({
           <h3 className="text-sm font-medium text-gray-400">Claude is working on:</h3>
           <div className="flex items-center gap-2">
             <FaFolder className="text-gray-500" />
-            <span className="font-mono text-sm">{repository.split('/').pop()?.replace('.git', '')}</span>
+            <span className="font-mono text-sm">{workspace.repo_name}</span>
           </div>
         </div>
         

@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { 
-  FaCheckCircle, FaSpinner, FaClock, FaFile, 
+import {
+  FaCheckCircle, FaSpinner, FaClock, FaFile,
   FaMemory, FaMicrochip, FaTerminal, FaEdit,
   FaChartLine, FaExclamationTriangle
 } from 'react-icons/fa'
+import type { Task, Workspace } from '@/lib/supabase/client'
 
 interface TodoItem {
   id: string
@@ -23,29 +24,30 @@ interface FileChange {
 }
 
 interface TaskProgressProps {
-  taskId: string
-  todos: TodoItem[]
-  fileChanges: FileChange[]
-  resources: {
-    cpu: number
-    memory: number
-    duration: number
-  }
-  activity: {
-    commandsRun: number
-    filesEdited: number
-    testsPassed: number
-    testsFailed: number
-  }
+  task: Task | null
+  workspace: Workspace
 }
 
 export function TaskProgress({
-  taskId,
-  todos,
-  fileChanges,
-  resources,
-  activity
+  task,
+  workspace
 }: TaskProgressProps) {
+  // Mock data for MVP - will be populated from git status and agent progress later
+  const todos: TodoItem[] = []
+  const fileChanges: FileChange[] = []
+  const resources = {
+    cpu: 0,
+    memory: 0,
+    duration: task?.started_at
+      ? Math.floor((Date.now() - new Date(task.started_at).getTime()) / 1000)
+      : 0
+  }
+  const activity = {
+    commandsRun: 0,
+    filesEdited: 0,
+    testsPassed: 0,
+    testsFailed: 0,
+  }
   const [expandedSection, setExpandedSection] = useState<string | null>('todos')
 
   const todoStats = {

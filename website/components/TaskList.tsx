@@ -4,54 +4,35 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { FaPlay, FaPause, FaStop, FaRedo, FaSearch, FaFilter } from 'react-icons/fa'
 import { format } from 'date-fns'
-
-export interface Task {
-  id: string
-  name: string
-  description: string
-  repository: string
-  branch?: string
-  status: 'running' | 'queued' | 'paused' | 'completed' | 'failed' | 'restarting'
-  progress: number
-  createdAt: Date
-  startedAt?: Date
-  completedAt?: Date
-  duration?: number
-  resources?: {
-    cpu: number
-    memory: number
-  }
-}
+import type { Task } from '@/lib/supabase/client'
 
 interface TaskListProps {
   tasks: Task[]
-  selectedTaskId?: string
-  onSelectTask: (taskId: string) => void
-  onTaskAction: (taskId: string, action: 'start' | 'pause' | 'stop' | 'restart') => void
+  currentTaskId?: string
+  onTaskSelect: (task: Task) => void
 }
 
 const statusConfig = {
   running: { icon: '🟢', color: 'text-green-500', bgColor: 'bg-green-500/10', pulse: true },
   queued: { icon: '🟡', color: 'text-yellow-500', bgColor: 'bg-yellow-500/10', pulse: false },
-  paused: { icon: '⏸️', color: 'text-gray-500', bgColor: 'bg-gray-500/10', pulse: false },
   completed: { icon: '✅', color: 'text-green-500', bgColor: 'bg-green-500/10', pulse: false },
   failed: { icon: '❌', color: 'text-red-500', bgColor: 'bg-red-500/10', pulse: false },
-  restarting: { icon: '🔄', color: 'text-blue-500', bgColor: 'bg-blue-500/10', pulse: true },
+  cancelled: { icon: '🚫', color: 'text-gray-500', bgColor: 'bg-gray-500/10', pulse: false },
 }
 
-export function TaskList({ tasks, selectedTaskId, onSelectTask, onTaskAction }: TaskListProps) {
+export function TaskList({ tasks, currentTaskId, onTaskSelect }: TaskListProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [groupBy, setGroupBy] = useState<'none' | 'repository' | 'status'>('repository')
 
   const filteredTasks = tasks.filter(task => {
     const matchesSearch = task.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         task.repository.toLowerCase().includes(searchQuery.toLowerCase())
+                         (task.description || '').toLowerCase().includes(searchQuery.toLowerCase())
     const matchesStatus = filterStatus === 'all' || task.status === filterStatus
     return matchesSearch && matchesStatus
   })
 
-  const groupedTasks = groupTasks(filteredTasks, groupBy)
+  const groupedTasks = groupTasks(filteredTasks, 'none')
 
   return (
     <div className="w-full h-full flex flex-col bg-gray-900 border-r border-gray-800">
@@ -111,9 +92,9 @@ export function TaskList({ tasks, selectedTaskId, onSelectTask, onTaskAction }: 
                 <TaskCard
                   key={task.id}
                   task={task}
-                  isSelected={task.id === selectedTaskId}
-                  onSelect={() => onSelectTask(task.id)}
-                  onAction={(action) => onTaskAction(task.id, action)}
+                  isSelected={task.id === currentTaskId}
+                  onSelect={() => onTaskSelect(task)}
+                  onAction={(action) => {}} // No actions for now
                 />
               ))}
             </div>
@@ -139,8 +120,7 @@ function TaskCard({ task, isSelected, onSelect, onAction }: {
   onSelect: () => void
   onAction: (action: 'start' | 'pause' | 'stop' | 'restart') => void
 }) {
-  const status = statusConfig[task.status]
-  const repoName = task.repository.split('/').pop()?.replace('.git', '') || task.repository
+  const status = statusConfig[task.status] || statusConfig.queued
 
   return (
     <motion.div
@@ -163,32 +143,23 @@ function TaskCard({ task, isSelected, onSelect, onAction }: {
         <div className="flex-1 min-w-0">
           <h3 className="font-medium text-sm truncate">{task.name}</h3>
           <p className="text-xs text-gray-500 truncate">
-            {repoName} {task.branch && `• ${task.branch}`} • {formatRelativeTime(task.createdAt)}
+            {task.started_at ? format(new Date(task.started_at), 'MMM d, h:mm a') : format(new Date(task.created_at), 'MMM d, h:mm a')}
           </p>
-          
-          {/* Progress Bar */}
+
+          {/* Status indicator for running tasks */}
           {task.status === 'running' && (
             <div className="mt-2">
               <div className="flex justify-between text-xs text-gray-500 mb-1">
-                <span>{task.progress}%</span>
-                {task.duration && <span>{formatDuration(task.duration)}</span>}
+                <span>In Progress</span>
               </div>
               <div className="w-full h-1 bg-gray-800 rounded-full overflow-hidden">
                 <motion.div
                   className="h-full bg-primary-500"
                   initial={{ width: 0 }}
-                  animate={{ width: `${task.progress}%` }}
-                  transition={{ duration: 0.5 }}
+                  animate={{ width: '100%' }}
+                  transition={{ duration: 1, repeat: Infinity }}
                 />
               </div>
-            </div>
-          )}
-
-          {/* Resource Usage */}
-          {task.status === 'running' && task.resources && (
-            <div className="mt-2 flex gap-3 text-xs text-gray-500">
-              <span>CPU: {task.resources.cpu}%</span>
-              <span>Memory: {task.resources.memory}%</span>
             </div>
           )}
         </div>

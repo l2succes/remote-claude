@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
@@ -11,6 +11,8 @@
   "dependencies": {
     "@fontsource/inter": "^5.2.6",
     "@fontsource/jetbrains-mono": "^5.2.6",
+    "@supabase/ssr": "^0.8.0",
+    "@supabase/supabase-js": "^2.90.1",
     "@tailwindcss/typography": "^0.5.16",
     "@types/react-syntax-highlighter": "^15.5.13",
     "autoprefixer": "^10.4.21",

@@ -52,6 +52,7 @@ const config: Config = {
         'typewriter': 'typewriter 0.15s steps(1) infinite',
         'gradient': 'gradient 15s ease infinite',
         'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'slide-up': 'slide-up 0.3s ease-out',
       },
       keyframes: {
         typewriter: {
@@ -66,6 +67,16 @@ const config: Config = {
           '50%': {
             'background-size': '200% 200%',
             'background-position': 'right center',
+          },
+        },
+        'slide-up': {
+          '0%': {
+            opacity: '0',
+            transform: 'translateY(20px)',
+          },
+          '100%': {
+            opacity: '1',
+            transform: 'translateY(0)',
           },
         },
       },

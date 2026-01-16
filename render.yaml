@@ -1,0 +1,34 @@
+# render.yaml - Render Blueprint for Remote Claude
+services:
+  - type: web
+    name: remote-claude-agent
+    runtime: docker
+    dockerfilePath: ./container/Dockerfile
+    dockerContext: .
+    region: oregon
+    plan: standard  # 2 GB RAM
+    numInstances: 1
+    healthCheckPath: /health
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 8080
+      - key: WORKSPACE_ROOT
+        value: /data/workspaces
+      - key: LOG_LEVEL
+        value: info
+      - key: ANTHROPIC_API_KEY
+        sync: false  # Set manually via CLI or dashboard
+      - key: SUPABASE_URL
+        sync: false  # Set manually
+      - key: SUPABASE_SERVICE_KEY
+        sync: false  # Set manually
+
+    disk:
+      name: workspaces
+      mountPath: /data/workspaces
+      sizeGB: 10
+
+    autoDeploy: true
