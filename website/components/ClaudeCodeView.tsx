@@ -2,10 +2,12 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { 
+import {
   FaCopy, FaTerminal, FaCode, FaExpand, FaCompress,
   FaPlay, FaFile, FaFolder, FaEdit
 } from 'react-icons/fa'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 
 import type { Workspace, Task } from '@/lib/supabase/client'
 
@@ -27,6 +29,7 @@ interface ClaudeCodeViewProps {
   messages: Message[]
   isStreaming: boolean
   onStartTask: (prompt: string) => void
+  onEnterPlanMode?: (prompt: string) => void
 }
 
 export function ClaudeCodeView({
@@ -34,11 +37,13 @@ export function ClaudeCodeView({
   task,
   messages,
   isStreaming,
-  onStartTask
+  onStartTask,
+  onEnterPlanMode
 }: ClaudeCodeViewProps) {
   const [input, setInput] = useState('')
   const [viewMode, setViewMode] = useState<'chat' | 'split-terminal' | 'split-editor'>('chat')
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [isPlanMode, setIsPlanMode] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -48,7 +53,12 @@ export function ClaudeCodeView({
 
   const handleSubmit = () => {
     if (input.trim() && !isStreaming) {
-      onStartTask(input.trim())
+      if (isPlanMode && onEnterPlanMode) {
+        onEnterPlanMode(input.trim())
+        setIsPlanMode(false)
+      } else {
+        onStartTask(input.trim())
+      }
       setInput('')
     }
   }
@@ -146,25 +156,44 @@ export function ClaudeCodeView({
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Ask Claude to help with your task..."
-                className="w-full p-3 pr-12 bg-gray-800 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-primary-500"
+                placeholder={isPlanMode ? "Describe what you want Claude to plan..." : "Ask Claude to help with your task..."}
+                className="w-full p-3 pr-24 bg-gray-800 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-primary-500"
                 rows={3}
                 disabled={isStreaming}
               />
-              <button
-                onClick={handleSubmit}
-                disabled={!input.trim() || isStreaming}
-                className={`absolute bottom-3 right-3 p-2 rounded transition-colors ${
-                  input.trim() && !isStreaming
-                    ? 'bg-primary-500 hover:bg-primary-600 text-white'
-                    : 'bg-gray-700 text-gray-500 cursor-not-allowed'
-                }`}
-              >
-                <FaPlay className="w-3 h-3" />
-              </button>
+              <div className="absolute bottom-3 right-3 flex gap-2">
+                {/* Plan Mode Toggle Button */}
+                <button
+                  onClick={() => setIsPlanMode(!isPlanMode)}
+                  className={`p-2 rounded transition-colors ${
+                    isPlanMode
+                      ? 'bg-purple-500 hover:bg-purple-600 text-white'
+                      : 'bg-gray-700 hover:bg-gray-600 text-gray-400'
+                  }`}
+                  title={isPlanMode ? "Exit Plan Mode" : "Enter Plan Mode"}
+                >
+                  <FaCode className="w-3 h-3" />
+                </button>
+
+                {/* Send Button */}
+                <button
+                  onClick={handleSubmit}
+                  disabled={!input.trim() || isStreaming}
+                  className={`p-2 rounded transition-colors ${
+                    input.trim() && !isStreaming
+                      ? 'bg-primary-500 hover:bg-primary-600 text-white'
+                      : 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                  }`}
+                >
+                  <FaPlay className="w-3 h-3" />
+                </button>
+              </div>
             </div>
-            <div className="mt-2 text-xs text-gray-500">
-              Press Enter to send, Shift+Enter for new line
+            <div className="mt-2 text-xs text-gray-500 flex justify-between">
+              <span>Press Enter to send, Shift+Enter for new line</span>
+              {isPlanMode && (
+                <span className="text-purple-400">🎯 Plan Mode: Claude will create a detailed plan</span>
+              )}
             </div>
           </div>
         </div>
@@ -273,10 +302,32 @@ function ToolUseIndicator({ toolUse }: { toolUse: any }) {
 }
 
 function MessageContent({ content }: { content: string }) {
-  // Remove code blocks for inline rendering
+  // Remove code blocks - they're handled separately
   const textContent = content.replace(/```[\s\S]*?```/g, '')
-  
-  return <>{textContent}</>
+
+  return (
+    <div className="prose prose-invert prose-sm max-w-none">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          // Customize link rendering to open in new tab
+          a: ({ node, ...props }) => (
+            <a {...props} target="_blank" rel="noopener noreferrer" />
+          ),
+          // Style inline code differently from code blocks
+          code: ({ node, inline, ...props }) => (
+            inline ? (
+              <code className="px-1.5 py-0.5 bg-gray-800 rounded text-sm font-mono" {...props} />
+            ) : (
+              <code {...props} />
+            )
+          ),
+        }}
+      >
+        {textContent}
+      </ReactMarkdown>
+    </div>
+  )
 }
 
 function extractCodeBlocks(content: string): Array<{ language?: string; code: string }> {

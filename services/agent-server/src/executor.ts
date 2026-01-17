@@ -129,9 +129,9 @@ export class AgentExecutor {
       disallowedTools: this.config.disallowedTools,
       permissionMode: this.config.permissionMode || 'acceptEdits',
       cwd: this.config.workingDirectory,
-      // Explicitly set the node executable path to fix spawn ENOENT error
       // Use process.execPath which gives the absolute path to the node binary
-      executable: process.execPath || '/Users/luc/.nvm/versions/node/v20.19.6/bin/node',
+      // Fallback to 'node' to let the system find Node via PATH
+      executable: process.execPath || 'node',
     };
 
     // Add MCP servers if configured

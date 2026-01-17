@@ -6,7 +6,8 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
-    "dev": "tsc --watch",
+    "dev": "nodemon --exec ts-node src/index.ts",
+    "dev:once": "ts-node src/index.ts",
     "start": "node dist/index.js",
     "start:dev": "ts-node src/index.ts",
     "clean": "rm -rf dist",

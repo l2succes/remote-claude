@@ -97,6 +97,49 @@ export default function WorkspaceDetailPage() {
     }
   }, [workspaceId, router])
 
+  // Load messages when current task changes
+  useEffect(() => {
+    if (!currentTask) {
+      setMessages([])
+      return
+    }
+
+    const loadMessages = async () => {
+      try {
+        const taskMessages = await WorkspaceManager.getTaskMessages(currentTask.id)
+        setMessages(taskMessages.map(msg => ({
+          id: msg.id,
+          role: msg.role,
+          content: msg.content,
+          timestamp: new Date(msg.timestamp),
+          toolUse: msg.tool_use
+        })))
+      } catch (err) {
+        console.error('Error loading messages:', err)
+      }
+    }
+
+    loadMessages()
+
+    // Subscribe to new messages for this task
+    const messagesChannel = WorkspaceManager.subscribeToMessages(
+      currentTask.id,
+      (message) => {
+        setMessages(prev => [...prev, {
+          id: message.id,
+          role: message.role,
+          content: message.content,
+          timestamp: new Date(message.timestamp),
+          toolUse: message.tool_use
+        }])
+      }
+    )
+
+    return () => {
+      messagesChannel.unsubscribe()
+    }
+  }, [currentTask?.id])
+
   const loadWorkspace = async () => {
     try {
       setLoading(true)
@@ -139,13 +182,14 @@ export default function WorkspaceDetailPage() {
       setCurrentTask(task)
       setTasks((prev) => [task, ...prev])
 
-      // Add user message to UI
-      setMessages(prev => [...prev, {
-        id: Date.now().toString(),
+      // Save user message to database
+      await WorkspaceManager.saveMessage({
+        task_id: task.id,
         role: 'user',
-        content: prompt,
-        timestamp: new Date(),
-      }])
+        content: prompt
+      })
+
+      // Note: No need to manually add to UI - realtime subscription will handle it
 
       // Send to agent via WebSocket
       if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -170,32 +214,86 @@ export default function WorkspaceDetailPage() {
     }
   }
 
-  const handleResponseMessage = (message: any) => {
-    const content = message.payload.content
+  const handleEnterPlanMode = async (prompt: string) => {
+    if (!workspace) return
 
-    content.forEach((block: any) => {
-      if (block.type === 'text' && block.text) {
-        setMessages(prev => [...prev, {
-          id: message.id || Date.now().toString(),
-          role: 'assistant',
-          content: block.text,
-          timestamp: new Date(message.timestamp || Date.now()),
-        }])
+    try {
+      // Create task with plan mode flag
+      const task = await WorkspaceManager.createTask({
+        workspaceId: workspace.id,
+        name: `[PLAN] ${prompt.slice(0, 90)}`,
+        description: prompt,
+      })
+
+      setCurrentTask(task)
+      setTasks((prev) => [task, ...prev])
+
+      // Save user message
+      await WorkspaceManager.saveMessage({
+        task_id: task.id,
+        role: 'user',
+        content: prompt
+      })
+
+      // Send plan mode request to agent
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({
+          type: 'query',
+          payload: {
+            prompt: `Enter plan mode. ${prompt}`,
+            sessionId: task.id,
+            workspaceId: workspace.id,
+            options: {
+              workingDirectory: workspace.disk_path,
+              planMode: true
+            },
+          },
+        }))
+      } else {
+        connectToAgentServer(task, `Enter plan mode. ${prompt}`)
       }
-    })
+    } catch (err) {
+      console.error('Failed to enter plan mode:', err)
+      setError(err instanceof Error ? err.message : 'Failed to enter plan mode')
+    }
   }
 
-  const handleToolUse = (message: any) => {
-    setMessages(prev => [...prev, {
-      id: message.id || Date.now().toString(),
-      role: 'system',
-      content: `Using tool: ${message.payload.toolName}`,
-      timestamp: new Date(message.timestamp || Date.now()),
-      toolUse: {
-        tool: message.payload.toolName,
-        params: message.payload.input,
-      },
-    }])
+  const handleResponseMessage = async (message: any) => {
+    const content = message.payload.content
+
+    if (!currentTask) return
+
+    for (const block of content) {
+      if (block.type === 'text' && block.text) {
+        try {
+          await WorkspaceManager.saveMessage({
+            task_id: currentTask.id,
+            role: 'assistant',
+            content: block.text
+          })
+        } catch (err) {
+          console.error('Error saving assistant message:', err)
+        }
+      }
+    }
+  }
+
+  const handleToolUse = async (message: any) => {
+    if (!currentTask) return
+
+    try {
+      await WorkspaceManager.saveMessage({
+        task_id: currentTask.id,
+        role: 'system',
+        content: `Using tool: ${message.payload.toolName}`,
+        tool_use: {
+          tool: message.payload.toolName,
+          params: message.payload.input
+        }
+      })
+    } catch (err) {
+      console.error('Error saving tool use message:', err)
+    }
   }
 
   const handleToolResult = (message: any) => {
@@ -357,6 +455,7 @@ export default function WorkspaceDetailPage() {
             messages={messages}
             isStreaming={isStreaming}
             onStartTask={handleStartTask}
+            onEnterPlanMode={handleEnterPlanMode}
           />
         </div>
 

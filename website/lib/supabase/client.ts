@@ -34,3 +34,27 @@ export type Task = {
   completed_at?: string
   created_at: string
 }
+
+export type Message = {
+  id: string
+  task_id: string
+  role: 'user' | 'assistant' | 'system'
+  content: string
+  tool_use?: {
+    tool: string
+    params: any
+    result?: any
+  }
+  timestamp: string
+  created_at: string
+}
+
+export type TaskTodo = {
+  id: string
+  task_id: string
+  text: string
+  active_form: string
+  status: 'pending' | 'in_progress' | 'completed'
+  created_at: string
+  completed_at?: string
+}

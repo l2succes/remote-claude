@@ -1,4 +1,4 @@
-import { createClient, Workspace, Task } from './supabase/client'
+import { createClient, Workspace, Task, Message, TaskTodo } from './supabase/client'
 
 export class WorkspaceManager {
   /**
@@ -54,12 +54,12 @@ export class WorkspaceManager {
     // Get current user (optional for local dev)
     const { data: { user } } = await supabase.auth.getUser()
 
-    // For local dev without auth, use a default user ID
-    const userId = user?.id || 'local-dev-user'
+    // For local dev without auth, user_id will be null
+    const userId = user?.id || null
 
     // Generate disk path
     const workspaceId = crypto.randomUUID()
-    const diskPath = `/data/workspaces/${userId}/${workspaceId}/${params.repoName}`
+    const diskPath = `/data/workspaces/${userId || 'local'}/${workspaceId}/${params.repoName}`
 
     const { data, error } = await supabase
       .from('workspaces')
@@ -234,5 +234,177 @@ export class WorkspaceManager {
         }
       )
       .subscribe()
+  }
+
+  /**
+   * Get all messages for a task
+   */
+  static async getTaskMessages(taskId: string): Promise<Message[]> {
+    const supabase = createClient()
+
+    const { data, error } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('task_id', taskId)
+      .order('timestamp', { ascending: true })
+
+    if (error) {
+      console.error('Error fetching messages:', error)
+      throw new Error(error.message)
+    }
+
+    return data || []
+  }
+
+  /**
+   * Subscribe to real-time message updates for a task
+   */
+  static subscribeToMessages(
+    taskId: string,
+    callback: (message: Message) => void
+  ) {
+    const supabase = createClient()
+
+    return supabase
+      .channel(`messages:${taskId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `task_id=eq.${taskId}`,
+        },
+        (payload) => callback(payload.new as Message)
+      )
+      .subscribe()
+  }
+
+  /**
+   * Save a message to the database
+   */
+  static async saveMessage(message: {
+    task_id: string
+    role: 'user' | 'assistant' | 'system'
+    content: string
+    tool_use?: any
+  }): Promise<Message> {
+    const supabase = createClient()
+
+    const { data, error } = await supabase
+      .from('messages')
+      .insert(message)
+      .select()
+      .single()
+
+    if (error) {
+      console.error('Error saving message:', error)
+      throw new Error(error.message)
+    }
+
+    return data
+  }
+
+  /**
+   * Get all todos for a task
+   */
+  static async getTaskTodos(taskId: string): Promise<TaskTodo[]> {
+    const supabase = createClient()
+
+    const { data, error } = await supabase
+      .from('task_todos')
+      .select('*')
+      .eq('task_id', taskId)
+      .order('created_at', { ascending: true })
+
+    if (error) {
+      console.error('Error fetching todos:', error)
+      throw new Error(error.message)
+    }
+
+    return data || []
+  }
+
+  /**
+   * Subscribe to real-time todo updates for a task
+   */
+  static subscribeToTodos(
+    taskId: string,
+    callback: (change: { type: 'INSERT' | 'UPDATE' | 'DELETE', todo: TaskTodo }) => void
+  ) {
+    const supabase = createClient()
+
+    return supabase
+      .channel(`todos:${taskId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'task_todos',
+          filter: `task_id=eq.${taskId}`,
+        },
+        (payload) => {
+          callback({
+            type: payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE',
+            todo: payload.new as TaskTodo,
+          })
+        }
+      )
+      .subscribe()
+  }
+
+  /**
+   * Save a todo to the database
+   */
+  static async saveTodo(todo: {
+    task_id: string
+    text: string
+    active_form: string
+    status?: 'pending' | 'in_progress' | 'completed'
+  }): Promise<TaskTodo> {
+    const supabase = createClient()
+
+    const { data, error } = await supabase
+      .from('task_todos')
+      .insert(todo)
+      .select()
+      .single()
+
+    if (error) {
+      console.error('Error saving todo:', error)
+      throw new Error(error.message)
+    }
+
+    return data
+  }
+
+  /**
+   * Update a todo's status
+   */
+  static async updateTodoStatus(
+    todoId: string,
+    status: 'pending' | 'in_progress' | 'completed'
+  ): Promise<TaskTodo> {
+    const supabase = createClient()
+
+    const updateData: any = { status }
+    if (status === 'completed') {
+      updateData.completed_at = new Date().toISOString()
+    }
+
+    const { data, error } = await supabase
+      .from('task_todos')
+      .update(updateData)
+      .eq('id', todoId)
+      .select()
+      .single()
+
+    if (error) {
+      console.error('Error updating todo:', error)
+      throw new Error(error.message)
+    }
+
+    return data
   }
 }

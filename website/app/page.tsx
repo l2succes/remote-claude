@@ -1,4 +1,4 @@
-'use client'
+"use client";
 
 import Terminal from "@/components/Terminal";
 import AsciiLogo from "@/components/AsciiLogo";
@@ -17,42 +17,42 @@ import {
 } from "react-icons/fa";
 
 export default function Home() {
-  const router = useRouter()
-  const [user, setUser] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
+  const router = useRouter();
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const supabase = createClient()
+    const supabase = createClient();
 
     // Check if user is already authenticated
     supabase.auth.getUser().then(({ data: { user } }) => {
-      setUser(user)
-      setLoading(false)
-    })
-  }, [])
+      setUser(user);
+      setLoading(false);
+    });
+  }, []);
 
   const handleGitHubSignIn = async () => {
-    const supabase = createClient()
+    const supabase = createClient();
 
     const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'github',
+      provider: "github",
       options: {
         redirectTo: `${window.location.origin}/workspaces`,
-        scopes: 'repo read:user',
+        scopes: "repo read:user",
       },
-    })
+    });
 
     if (error) {
-      console.error('Error signing in:', error)
-      alert('Failed to sign in with GitHub: ' + error.message)
+      console.error("Error signing in:", error);
+      alert("Failed to sign in with GitHub: " + error.message);
     }
-  }
+  };
 
   const handleSignOut = async () => {
-    const supabase = createClient()
-    await supabase.auth.signOut()
-    setUser(null)
-  }
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    setUser(null);
+  };
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900">
@@ -61,7 +61,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
-              <h1 className="text-xl font-bold text-white">Claude Cloud</h1>
+              <h1 className="text-xl font-bold text-white">Remote Claude</h1>
             </div>
             <div className="flex items-center space-x-4">
               <Link
@@ -84,8 +84,8 @@ export default function Home() {
               >
                 <FaGithub /> GitHub
               </a>
-              {!loading && (
-                user ? (
+              {!loading &&
+                (user ? (
                   <button
                     onClick={handleSignOut}
                     className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-md text-sm font-medium"
@@ -99,8 +99,7 @@ export default function Home() {
                   >
                     <FaGithub /> Sign In
                   </button>
-                )
-              )}
+                ))}
             </div>
           </div>
         </div>

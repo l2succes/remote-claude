@@ -28,6 +28,7 @@
     "docker:dev": "docker-compose --profile dev up -d agent-dev"
   },
   "devDependencies": {
+    "nodemon": "^3.1.11",
     "typescript": "^5.3.3"
   },
   "engines": {
