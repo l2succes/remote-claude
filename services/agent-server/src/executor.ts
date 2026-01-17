@@ -116,7 +116,7 @@ export class AgentExecutor {
     }
 
     // Build SDK options
-    const options: ClaudeAgentOptions = {
+    const options: any = {
       systemPrompt: this.config.systemPrompt,
       maxTurns: this.config.maxTurns || 50,
       allowedTools: this.config.allowedTools || [
@@ -129,6 +129,9 @@ export class AgentExecutor {
       disallowedTools: this.config.disallowedTools,
       permissionMode: this.config.permissionMode || 'acceptEdits',
       cwd: this.config.workingDirectory,
+      // Use process.execPath which gives the absolute path to the node binary
+      // Fallback to 'node' to let the system find Node via PATH
+      executable: process.execPath || 'node',
     };
 
     // Add MCP servers if configured

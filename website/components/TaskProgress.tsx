@@ -2,11 +2,13 @@
 
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { 
-  FaCheckCircle, FaSpinner, FaClock, FaFile, 
+import {
+  FaCheckCircle, FaSpinner, FaClock, FaFile,
   FaMemory, FaMicrochip, FaTerminal, FaEdit,
   FaChartLine, FaExclamationTriangle
 } from 'react-icons/fa'
+import type { Task, Workspace } from '@/lib/supabase/client'
+import { WorkspaceManager } from '@/lib/workspace-manager'
 
 interface TodoItem {
   id: string
@@ -23,30 +25,100 @@ interface FileChange {
 }
 
 interface TaskProgressProps {
-  taskId: string
-  todos: TodoItem[]
-  fileChanges: FileChange[]
-  resources: {
-    cpu: number
-    memory: number
-    duration: number
-  }
-  activity: {
-    commandsRun: number
-    filesEdited: number
-    testsPassed: number
-    testsFailed: number
-  }
+  task: Task | null
+  workspace: Workspace
 }
 
 export function TaskProgress({
-  taskId,
-  todos,
-  fileChanges,
-  resources,
-  activity
+  task,
+  workspace
 }: TaskProgressProps) {
+  const [todos, setTodos] = useState<TodoItem[]>([])
+  const [isLoadingTodos, setIsLoadingTodos] = useState(false)
   const [expandedSection, setExpandedSection] = useState<string | null>('todos')
+
+  // Load todos when task changes
+  useEffect(() => {
+    if (!task) {
+      setTodos([])
+      return
+    }
+
+    const loadTodos = async () => {
+      try {
+        setIsLoadingTodos(true)
+        const taskTodos = await WorkspaceManager.getTaskTodos(task.id)
+        setTodos(taskTodos.map(t => ({
+          id: t.id,
+          text: t.text,
+          status: t.status,
+          createdAt: new Date(t.created_at),
+          completedAt: t.completed_at ? new Date(t.completed_at) : undefined
+        })))
+      } catch (err) {
+        console.error('Error loading todos:', err)
+      } finally {
+        setIsLoadingTodos(false)
+      }
+    }
+
+    loadTodos()
+
+    // Subscribe to todo updates
+    const todosChannel = WorkspaceManager.subscribeToTodos(
+      task.id,
+      ({ type, todo }) => {
+        if (type === 'INSERT') {
+          setTodos(prev => [...prev, {
+            id: todo.id,
+            text: todo.text,
+            status: todo.status,
+            createdAt: new Date(todo.created_at),
+            completedAt: todo.completed_at ? new Date(todo.completed_at) : undefined
+          }])
+        } else if (type === 'UPDATE') {
+          setTodos(prev => prev.map(t =>
+            t.id === todo.id
+              ? {
+                  ...t,
+                  status: todo.status,
+                  completedAt: todo.completed_at ? new Date(todo.completed_at) : undefined
+                }
+              : t
+          ))
+        } else if (type === 'DELETE') {
+          setTodos(prev => prev.filter(t => t.id !== todo.id))
+        }
+      }
+    )
+
+    return () => {
+      todosChannel.unsubscribe()
+    }
+  }, [task?.id])
+
+  // Auto-expand todos section when todos exist
+  useEffect(() => {
+    if (todos.length > 0 && expandedSection !== 'todos') {
+      setExpandedSection('todos')
+    }
+  }, [todos.length])
+
+  // Mock data for other sections - will be populated later
+  const fileChanges: FileChange[] = []
+  const resources = {
+    cpu: 0,
+    memory: 0,
+    duration: task?.started_at
+      ? Math.floor((Date.now() - new Date(task.started_at).getTime()) / 1000)
+      : 0
+  }
+  const activity = {
+    commandsRun: 0,
+    filesEdited: 0,
+    testsPassed: 0,
+    testsFailed: 0,
+  }
 
   const todoStats = {
     total: todos.length,

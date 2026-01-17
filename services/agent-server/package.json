@@ -6,7 +6,8 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
-    "dev": "tsc --watch",
+    "dev": "nodemon --exec ts-node src/index.ts",
+    "dev:once": "ts-node src/index.ts",
     "start": "node dist/index.js",
     "start:dev": "ts-node src/index.ts",
     "clean": "rm -rf dist",
@@ -15,6 +16,7 @@
   "dependencies": {
     "@remote-claude/shared": "workspace:*",
     "@anthropic-ai/claude-agent-sdk": "^0.1.0",
+    "@supabase/supabase-js": "^2.39.0",
     "express": "^4.18.0",
     "ws": "^8.16.0",
     "uuid": "^9.0.0",

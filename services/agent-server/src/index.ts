@@ -10,9 +10,11 @@ import express from 'express';
 import { WebSocketServer, WebSocket } from 'ws';
 import { createServer } from 'http';
 import { v4 as uuidv4 } from 'uuid';
+import { createClient } from '@supabase/supabase-js';
 import { AgentExecutor } from './executor';
 import { MCPManager } from './mcp-manager';
 import { Logger } from './logger';
+import { GitService } from './git-service';
 import type {
   ClientMessage,
   ServerMessage,
@@ -55,6 +57,8 @@ export class AgentServer {
   private logger: Logger;
   private mcpManager: MCPManager;
   private sessions: Map<string, ActiveSession> = new Map();
+  private supabaseUrl = process.env.SUPABASE_URL;
+  private supabaseKey = process.env.SUPABASE_SERVICE_KEY;
 
   constructor(config: Partial<ServerConfig> = {}) {
     this.config = {
@@ -111,6 +115,28 @@ export class AgentServer {
         turn: s.turn,
       }));
       res.json({ sessions });
+    });
+
+    // Clone repository endpoint
+    this.app.post('/clone', express.json(), async (req, res) => {
+      const { workspaceId, repoUrl, diskPath, githubToken } = req.body;
+
+      if (!workspaceId || !repoUrl || !diskPath || !githubToken) {
+        return res.status(400).json({ error: 'Missing required fields' });
+      }
+
+      try {
+        this.logger.info(`Starting clone for workspace ${workspaceId}`);
+
+        // Clone in background and notify via callback
+        this.cloneRepository(workspaceId, repoUrl, diskPath, githubToken)
+          .catch(err => this.logger.error('Clone failed', err));
+
+        res.json({ status: 'started', workspaceId });
+      } catch (error) {
+        this.logger.error('Clone request failed', error);
+        res.status(500).json({ error: 'Failed to start clone' });
+      }
     });
   }
 
@@ -469,6 +495,50 @@ export class AgentServer {
         session.executor.cancel().catch(() => {});
         this.sessions.delete(sessionId);
       }
+    }
+  }
+
+  // --------------------------------------------------------------------------
+  // Repository Cloning
+  // --------------------------------------------------------------------------
+
+  private async cloneRepository(
+    workspaceId: string,
+    repoUrl: string,
+    diskPath: string,
+    githubToken: string
+  ): Promise<void> {
+    if (!this.supabaseUrl || !this.supabaseKey) {
+      throw new Error('Supabase not configured');
+    }
+
+    const supabase = createClient(this.supabaseUrl, this.supabaseKey);
+    const gitService = new GitService();
+
+    // Update to 'cloning'
+    await supabase
+      .from('workspaces')
+      .update({ clone_status: 'cloning' })
+      .eq('id', workspaceId);
+
+    try {
+      await gitService.cloneRepository(repoUrl, diskPath, githubToken);
+      this.logger.info(`Clone completed for workspace ${workspaceId}`);
+
+      // Update to 'ready'
+      await supabase
+        .from('workspaces')
+        .update({ clone_status: 'ready' })
+        .eq('id', workspaceId);
+    } catch (error) {
+      this.logger.error(`Clone failed for workspace ${workspaceId}`, error);
+
+      // Update to 'error'
+      await supabase
+        .from('workspaces')
+        .update({ clone_status: 'error' })
+        .eq('id', workspaceId);
+      throw error;
     }
   }
 

@@ -40,17 +40,24 @@ FROM node:20-slim
 
 WORKDIR /app
 
-# Install runtime dependencies
+# Install runtime dependencies including GitHub CLI
 RUN apt-get update && apt-get install -y \
     git \
     curl \
     jq \
+    ca-certificates \
+    gnupg \
+    && mkdir -p /etc/apt/keyrings \
+    && curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | gpg --dearmor -o /etc/apt/keyrings/githubcli-archive-keyring.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
+    && apt-get update \
+    && apt-get install -y gh \
     && rm -rf /var/lib/apt/lists/*
 
-# Create non-root user
+# Create non-root user and workspace directory
 RUN useradd -m -s /bin/bash claude && \
-    mkdir -p /workspace && \
-    chown -R claude:claude /app /workspace
+    mkdir -p /workspace /data/workspaces && \
+    chown -R claude:claude /app /workspace /data/workspaces
 
 # Copy built application
 COPY --from=builder /app/packages/shared/dist ./packages/shared/dist

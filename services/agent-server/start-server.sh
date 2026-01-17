@@ -1,7 +1,11 @@
 #!/bin/bash
 
-# Ensure node is in PATH for spawned processes
-export PATH="/Users/luc/.nvm/versions/node/v20.19.6/bin:$PATH"
+# Load NVM if available (for development environments)
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
+# Preserve existing PATH which should include node
+export PATH="$PATH"
 
 # Set working directory for Claude Code
 export WORKING_DIR="/Users/luc/conductor/workspaces/remote-claude-monorepo/belo/workspace"
